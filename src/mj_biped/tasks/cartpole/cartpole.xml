@@ -1,0 +1,16 @@
+<!-- A cart on a rail with a pole attached by a hinge. -->
+<body name="cart" pos="0 0 1">
+  <joint name="slider" type="slide" axis="1 0 0"
+         limited="true" range="-1.8 1.8" damping="5e-4"/>
+  <geom name="cart" type="box" size="0.2 0.15 0.1" mass="1"/>
+  <body name="pole_1" childclass="pole">
+    <joint name="hinge_1"/>
+    <geom name="pole_1"/>
+  </body>
+</body>
+
+<!-- A motor that pushes the cart along the rail. -->
+<actuator>
+  <motor name="slide" joint="slider" gear="10"
+         ctrllimited="true" ctrlrange="-1 1"/>
+</actuator>

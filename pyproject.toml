@@ -1,0 +1,20 @@
+[project]
+name = "mj-biped"
+version = "0.1.0"
+description = "BE2R bipedal robot tasks in mjlab"
+readme = "README.md"
+authors = [
+    { name = "Kirill", email = "kirotavr@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "mjlab>=1.4.0",
+    "mujoco>=3.8.1",
+]
+
+[project.scripts]
+mj-biped = "mj_biped:main"
+
+[build-system]
+requires = ["uv_build>=0.11.21,<0.12.0"]
+build-backend = "uv_build"
