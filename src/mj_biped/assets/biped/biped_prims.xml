@@ -1,0 +1,55 @@
+<mujoco model="BipeD-prims">
+    <compiler angle="radian" meshdir="meshes" autolimits="true"/>
+
+    <default>
+        <default class="BD-prims">
+            <default class="visual">
+                <geom group="2" type="capsule" size="0.02 0.05" density="0" contype="0" conaffinity="0"/>
+            </default>
+            <default class="collision">
+                <geom group="3" rgba=".2 .6 .2 .3" type="capsule" contype="1" conaffinity="1"/>
+                <default class="foot_capsule">
+                    <geom type="capsule" size="0.01"/>
+                </default>
+            </default>
+            <site group="5" rgba="1 0 0 1"/>
+        </default>
+    </default>
+
+    <asset>
+        <texture type="2d" name="grid_tex" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" width="100" height="100"/>
+        <material name="grid" texture="grid_tex" texrepeat="1 1" texuniform="true"/>
+    </asset>
+
+    <worldbody>
+        <geom name="floor" pos="0 0 -0.40" size="0 0 0.05" type="plane" material="grid" 
+                condim="3" friction="0.95 0.005 0.0001"/>
+
+        <body name="pelvis" pos="0 0 0" childclass="BD-prims">
+            <light pos="0 0 2" mode="trackcom" castshadow="false"/>
+            <inertial pos="0 0 0" quat="1 0 0 0" mass="2.0" diaginertia="0.1 0.1 0.1"/>
+            <freejoint name="floating_base_joint"/>
+            <geom class="visual" type="capsule" size="0.1 0.1" euler="1.57 0 0" rgba="0.1 0.5 0.5 1"/>
+            <geom class="collision" type="capsule" size="0.1 0.1" euler="1.57 0 0"/>
+
+            <body name="left_hip_roll_link" pos="-0.1 0.25 0">
+                <joint name="J_left_hip_roll" axis="1 0 0" range="-1.57 0.5"/>
+                <geom class="visual" type="cylinder" size="0.048 0.02" euler="0 1.57 0" rgba="0.1 0.7 0.3 1"/>
+                <geom class="collision" type="cylinder" size="0.048 0.04" euler="0 1.57 0"/>
+                <!-- <geom class="visual" type="box" fromto="" euler="0 0 0" rgba="0.5 0.5 0 1"/> -->
+                <!-- <inertial pos="0 0 0"/>  -->
+                
+                <body name="left_hip_pitch_link" pos="0.1 0 -0.06">
+                    <joint name="J_left_hip_pitch" axis="0 0 1" range="-0.785 1.57"/>
+                    <geom class="visual" type="cylinder" size="0.048 0.02" euler="0 0 0" rgba="0.1 0.7 0.3 1"/>
+                    <geom class="collision" type="cylinder" size="0.048 0.02" euler="0 0 0"/>
+                    
+
+                </body>
+            </body>
+        </body>
+    </worldbody>
+
+</mujoco>
+
+  
