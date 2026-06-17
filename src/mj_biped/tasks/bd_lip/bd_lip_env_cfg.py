@@ -72,14 +72,14 @@ BD_ARTICULATION = EntityArticulationInfoCfg(
   actuators=(
     BuiltinPdActuatorCfg(
       target_names_expr=("J_L0", "J_R0", "J_L4_ankle", "J_R4_ankle"),
-      stiffness=35.0,
-      damping=1.5,
+      stiffness=20.0,
+      damping=0.7,
       effort_limit=20.0,
     ),
     BuiltinPdActuatorCfg(
       target_names_expr=("J_L1", "J_R1", "J_L2", "J_R2", "J_L3", "J_R3"),
-      stiffness=35.0,
-      damping=1.5,
+      stiffness=20.0,
+      damping=0.7,
       effort_limit=20.0,
     ),
   ),
@@ -203,19 +203,19 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       rel_standing_envs=0.2,
       rel_heading_envs=1.0,
       rel_forward_envs=0.0,
-      resampling_time_range=(0.0, 5.0),
+      resampling_time_range=(5.0, 5.0),
       debug_vis=True,
       ranges=UniformVelocityCommandCfg.Ranges(
         lin_vel_x=(-0.2, 0.3),
         lin_vel_y=(-0.1, 0.1),
-        ang_vel_z=(-0.25, 0.25),
+        ang_vel_z=(-0.1, 0.1),
         heading=(-math.pi / 4.0, math.pi / 4.0),
       ),
     ),
     "gait_command": mdp.UniformGaitCommandCfg(
       resampling_time_range=(5.0, 5.0),
       ranges=mdp.UniformGaitCommandCfg.Ranges(
-        frequencies=(1.0, 2.0),
+        frequencies=(0.5, 1.0),
         offsets=(0.5, 0.5),
         durations=(0.5, 0.5),
       ),
@@ -236,7 +236,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ),
     "base_height_command": mdp.BaseHeightCommandCfg(
       resampling_time_range=(1.0e6, 1.0e6),
-      ranges=mdp.BaseHeightCommandCfg.Ranges(height=(0.24, 0.26)),
+      ranges=mdp.BaseHeightCommandCfg.Ranges(height=(0.26, 0.30)),
     ),
   }
 
@@ -276,7 +276,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     "track_angular_velocity": RewardTermCfg(
       func=velocity_mdp.track_angular_velocity,
       weight=2.0,
-      params={"command_name": "base_velocity", "std": math.sqrt(0.05)},
+      params={"command_name": "base_velocity", "std": math.sqrt(0.1)},
     ),
     "step_tracking": RewardTermCfg(
       func=mdp.step_command_tracking,
@@ -284,13 +284,13 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       params={
         "asset_cfg": feet_body_cfg,
         "command_name": "lip_step_command",
-        "position_sigma": 0.02,
-        "yaw_sigma": 0.10,
+        "position_sigma": 0.05,
+        "yaw_sigma": 0.25,
       },
     ),
     "heading": RewardTermCfg(
       func=mdp.heading_tracking,
-      weight=2.0,
+      weight=0.5,
       params={"command_name": "base_velocity", "heading_sigma": 0.15},
     ),
     "contact_schedule": RewardTermCfg(
@@ -300,12 +300,12 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "sensor_name": "feet_contact",
         "command_name": "gait_command",
         "threshold": 1.0,
-        "sigma": 0.10,
+        "sigma": 0.25,
       },
     ),
     "feet_air_time": RewardTermCfg(
       func=mdp.feet_air_time,
-      weight=1.0,
+      weight=0.0,
       params={
         "sensor_name": "feet_contact",
         "command_name": "base_velocity",
@@ -323,8 +323,8 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       weight=-1.0,
       params={"command_name": "base_height_command"},
     ),
-    "joint_torques": RewardTermCfg(func=env_mdp.joint_torques_l2, weight=-1.0e-4),
-    "joint_vel": RewardTermCfg(func=env_mdp.joint_vel_l2, weight=-1.0e-3),
+    "joint_torques": RewardTermCfg(func=env_mdp.joint_torques_l2, weight=-1.0e-3),
+    "joint_vel": RewardTermCfg(func=env_mdp.joint_vel_l2, weight=-1.0e-2),
     "joint_pos_limits": RewardTermCfg(func=env_mdp.joint_pos_limits, weight=-0.5),
     "stand_still": RewardTermCfg(
       func=mdp.stand_still,
@@ -332,7 +332,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       params={
         "command_name": "base_velocity",
         "lin_threshold": 0.02,
-        "ang_threshold": 0.05,
+        "ang_threshold": 0.02,
       },
     ),
     "foot_slip": RewardTermCfg(
@@ -457,7 +457,7 @@ def bd_lip_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
       obs_normalization=True,
       distribution_cfg={
         "class_name": "GaussianDistribution",
-        "init_std": 1.0,
+        "init_std": 0.8,
         "std_type": "scalar",
       },
     ),
@@ -470,10 +470,10 @@ def bd_lip_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
       value_loss_coef=1.0,
       use_clipped_value_loss=True,
       clip_param=0.2,
-      entropy_coef=0.005,
+      entropy_coef=0.01,
       num_learning_epochs=5,
       num_mini_batches=4,
-      learning_rate=5.0e-4,
+      learning_rate=1.0e-3,
       schedule="adaptive",
       gamma=0.99,
       lam=0.95,

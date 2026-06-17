@@ -26,18 +26,18 @@
       <body name="L0_Link" pos="0 0.053301 0.056145" quat="0 0 0 1">
         <inertial pos="0 0 -0.0529" mass="0.55" diaginertia="0.0007 0.001 0.001" />
         <joint name="J_L0" type="hinge" axis="0 0 -1" limited="true" range="-0.3 0.3" />
-        <geom type="mesh" mesh="L0_Link" contype="0" conaffinity="0" group="1" rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+        <geom type="mesh" mesh="L0_Link" contype="0" conaffinity="0" group="1" rgba="0.9 0.9 0.9 1" />
 
         <body name="L1_Link" pos="-0.010958 0 -0.054965">
           <inertial pos="0.01 -0.075 -0.0092" mass="0.55" diaginertia="0.001 0.0006 0.001" />
           <joint name="J_L1" type="hinge" axis="-1 0 0" limited="true" range="-0.2 0.2" />
-          <geom type="mesh" mesh="L1_Link" contype="0" conaffinity="0" group="1" rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          <geom type="mesh" mesh="L1_Link" contype="0" conaffinity="0" group="1" rgba="0.9 0.9 0.9 1" />
 
           <body name="L2_Link" pos="0.010958 -0.073699 -0.014313" quat="0 0 0 1">
             <inertial pos="0 0.01 -0.15" mass="0.55" diaginertia="0.001 0.0006 0.001" />
             <joint name="J_L2" type="hinge" axis="0 1 0" limited="true" range="-0.57 1.57" />
-            <geom type="mesh" mesh="L2_Link" contype="0" conaffinity="0" group="1" rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
-            <geom type="cylinder" pos="0 0.005 -0.06" size="0.02 0.06" contype="1" conaffinity="1" group="0" rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+            <geom type="mesh" mesh="L2_Link" contype="0" conaffinity="0" group="1" rgba="0.8 0.8 0.9 1" />
+            <geom type="cylinder" pos="0 0.005 -0.06" size="0.02 0.06" contype="1" conaffinity="1" group="0" rgba="0.8 0.8 0.9 1" />
 
             <body name="L3_Link" pos="0 0 -0.14738">
               <inertial pos="0 -0.005 -0.135" mass="0.35" diaginertia="0.001 0.0006 0.001" />
@@ -49,7 +49,7 @@
                 <inertial pos="0.0118 -0.0068 -0.0296" mass="0.15" diaginertia="0.0001 0.0003 0.0003" />
                 <joint name="J_L4_ankle" type="hinge" axis="0 1 0" limited="true" range="-0.3 0.8" />
                 <geom type="mesh" mesh="L4_Link_ankle" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" />
-                <geom type="box" pos="0.015 0 -0.04" size="0.07 0.025 0.009" contype="1" conaffinity="1" group="0" rgba="1 1 1 1" />
+                <geom type="box" pos="0.015 0 -0.044" size="0.07 0.025 0.005" contype="1" conaffinity="1" group="0" friction="1.0 0.01 0.001" rgba="1 1 1 1" />
               </body>
             </body>
           </body>
@@ -59,18 +59,18 @@
       <body name="R0_Link" pos="0 -0.053425 0.056145" quat="0 0 0 1">
         <inertial pos="0 -0.0001 -0.0512" mass="0.55" diaginertia="0.0007 0.001 0.001" />
         <joint name="J_R0" type="hinge" axis="0 0 -1" limited="true" range="-0.3 0.3" />
-        <geom type="mesh" mesh="R0_Link" contype="0" conaffinity="0" group="1" rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+        <geom type="mesh" mesh="R0_Link" contype="0" conaffinity="0" group="1" rgba="0.9 0.9 0.9 1" />
 
         <body name="R1_Link" pos="-0.010958 0 -0.054965">
           <inertial pos="0.01 0.075 -0.0092" mass="0.55" diaginertia="0.001 0.0006 0.001" />
           <joint name="J_R1" type="hinge" axis="-1 0 0" limited="true" range="-0.2 0.2" />
-          <geom type="mesh" mesh="R1_Link" contype="0" conaffinity="0" group="1" rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          <geom type="mesh" mesh="R1_Link" contype="0" conaffinity="0" group="1" rgba="0.9 0.9 0.9 1" />
 
           <body name="R2_Link" pos="0.010958 0.073575 -0.014313" quat="0 0 0 1">
             <inertial pos="0 -0.01 -0.15" mass="0.55" diaginertia="0.001 0.0006 0.001" />
             <joint name="J_R2" type="hinge" axis="0 -1 0" limited="true" range="-1.57 0.57" />
-            <geom type="mesh" mesh="R2_Link" contype="0" conaffinity="0" group="1" rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
-            <geom type="cylinder" pos="0 -0.005 -0.06" size="0.02 0.06" contype="1" conaffinity="1" group="0" rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+            <geom type="mesh" mesh="R2_Link" contype="0" conaffinity="0" group="1" rgba="0.8 0.8 0.9 1" />
+            <geom type="cylinder" pos="0 -0.005 -0.06" size="0.02 0.06" contype="1" conaffinity="1" group="0" rgba="0.8 0.8 0.9 1" />
 
             <body name="R3_Link" pos="0 0 -0.14738">
               <inertial pos="0 0.005 -0.135" mass="0.35" diaginertia="0.001 0.0006 0.001" />
@@ -81,8 +81,8 @@
               <body name="R4_Link_ankle" pos="0 0 -0.14149">
                 <inertial pos="0.0118 0.0067 -0.0296" mass="0.15" diaginertia="0.0001 0.0003 0.0003" />
                 <joint name="J_R4_ankle" type="hinge" axis="0 -1 0" limited="true" range="-0.8 0.3" />
-                <geom type="mesh" mesh="R4_Link_ankle" contype="0" conaffinity="0" group="1" rgba="1 0.90588 0.91765 1" />
-                <geom type="box" pos="0.015 0 -0.04" size="0.07 0.025 0.009" contype="1" conaffinity="1" group="0" rgba="1 0.90588 0.91765 1" />
+                <geom type="mesh" mesh="R4_Link_ankle" contype="0" conaffinity="0" group="1" rgba="1 0.9 0.9 1" />
+                <geom type="box" pos="0.015 0 -0.044" size="0.07 0.025 0.005" contype="1" conaffinity="1" group="0" friction="1.0 0.01 0.001" rgba="1 0.9 0.9 1" />
               </body>
             </body>
           </body>
