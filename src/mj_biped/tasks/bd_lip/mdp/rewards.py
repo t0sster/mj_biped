@@ -84,6 +84,48 @@ def contact_schedule(
   return torch.exp(-torch.square(diff) / sigma).mean(dim=1)
 
 
+def feet_air_time(
+  env,
+  sensor_name: str,
+  command_name: str = "base_velocity",
+  gait_command_name: str = "gait_command",
+  threshold: float = 0.1,
+  swing_time_scale: float = 0.5,
+  min_threshold: float = 0.05,
+  dense: bool = False,
+  contact_force_threshold: float = 1.0,
+  single_support_only: bool = False,
+) -> torch.Tensor:
+  sensor: ContactSensor = env.scene[sensor_name]
+  last_air_time = sensor.data.last_air_time[:, :]
+
+  gait_cmd = env.command_manager.get_command(gait_command_name)
+  freq = gait_cmd[:, 0].clamp(min=1.0e-3)
+  duration = gait_cmd[:, 2].clamp(0.05, 0.95)
+  swing_time = (1.0 - duration) / freq
+  dyn_threshold = torch.clamp(
+    swing_time_scale * swing_time, min=min_threshold
+  ).unsqueeze(1)
+
+  if dense:
+    assert sensor.data.force is not None
+    contact_forces = sensor.data.force[:, :, 2]
+    in_air = contact_forces <= contact_force_threshold
+    if single_support_only:
+      single_support = in_air.sum(dim=1) == 1
+    denom = torch.clamp(dyn_threshold, min=1.0e-6)
+    air_ratio = torch.clamp(last_air_time / denom, max=1.0)
+    reward = torch.mean(air_ratio * in_air.float(), dim=1)
+    if single_support_only:
+      reward = reward * single_support.float()
+  else:
+    first_contact = sensor.compute_first_contact(env.step_dt)
+    reward = torch.sum((last_air_time - dyn_threshold) * first_contact.float(), dim=1)
+
+  reward *= torch.norm(env.command_manager.get_command(command_name)[:, :2], dim=1) > threshold
+  return reward
+
+
 def heading_tracking(
   env,
   asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
