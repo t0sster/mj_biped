@@ -34,11 +34,12 @@ JOINT_SIGNS = {
   "J_L1": 1.0,
   "J_R1": 1.0,
   "J_L2": 1.0,
+
   "J_R2": 1.0,
   "J_L3": 1.0,
-  "J_R3": 1.0,
-  "J_L4_ankle": 1.0,
-  "J_R4_ankle": -1.0,
+  "J_R3": -1.0,
+  "J_L4_ankle": -1.0,
+  "J_R4_ankle": 1.0,
 }
 
 
@@ -95,8 +96,8 @@ class OpenLoopJointPolicy:
 
     phase = self.step_idx * self.env.step_dt * self.cfg.frequency * 2.0 * math.pi
     s = math.sin(phase)
-    left = max(0.0, s)
-    right = max(0.0, -s)
+    left = s
+    right = s
 
     if self.cfg.profile == "sine":
       left = s

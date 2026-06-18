@@ -27,8 +27,11 @@ def step_command_tracking(
   env,
   asset_cfg: SceneEntityCfg,
   command_name: str = "lip_step_command",
+  gait_command_name: str = "gait_command",
+  velocity_command_name: str = "base_velocity",
   position_sigma: float = 0.05,
   yaw_sigma: float = 0.25,
+  command_threshold: float = 0.1,
 ) -> torch.Tensor:
   asset: Entity = env.scene[asset_cfg.name]
   foot_pos_w = asset.data.body_link_pos_w[:, asset_cfg.body_ids, :]
@@ -69,7 +72,25 @@ def step_command_tracking(
   yaw_err = math_utils.wrap_to_pi(foot_yaw_w - target_yaw_w)
   reward_pos = torch.exp(-torch.square(pos_err) / position_sigma)
   reward_yaw = torch.exp(-torch.square(yaw_err) / yaw_sigma)
-  return 0.5 * (reward_pos + reward_yaw).mean(dim=1)
+  per_foot_reward = 0.5 * (reward_pos + reward_yaw)
+
+  gait_command = env.command_manager.get_command(gait_command_name)
+  right_phase, left_phase, duration = gait_phase_from_command(
+    env.episode_length_buf, env.step_dt, gait_command
+  )
+  right_swing = right_phase >= duration
+  left_swing = left_phase >= duration
+
+  tie_break = (right_swing & left_swing) | ((~right_swing) & (~left_swing))
+  right_swing[tie_break] = right_phase[tie_break] > left_phase[tie_break]
+  left_swing[tie_break] = ~right_swing[tie_break]
+
+  swing_mask = torch.stack((right_swing, left_swing), dim=1).float()
+  reward = torch.sum(per_foot_reward * swing_mask, dim=1)
+
+  velocity_command = env.command_manager.get_command(velocity_command_name)
+  moving = torch.norm(velocity_command[:, :2], dim=1) > command_threshold
+  return torch.where(moving, reward, torch.ones_like(reward))
 
 
 def contact_schedule(
@@ -85,18 +106,18 @@ def contact_schedule(
   right_phase, left_phase, duration = gait_phase_from_command(
     env.episode_length_buf, env.step_dt, command
   )
-  desired = torch.stack((right_phase < duration, left_phase < duration), dim=1).float()
+  desired = torch.stack((right_phase < duration, left_phase < duration), dim=1)
 
   if sensor.data.force is not None:
     force = _contact_ordered(sensor.data.force, sensor, body_names)
     force_norm = torch.norm(force, dim=-1)
-    actual = (force_norm > threshold).float()
+    actual = force_norm > threshold
   else:
     assert sensor.data.found is not None
-    actual = (_contact_ordered(sensor.data.found, sensor, body_names) > 0).float()
+    actual = _contact_ordered(sensor.data.found, sensor, body_names) > 0
 
-  diff = actual - desired
-  return torch.exp(-torch.square(diff) / sigma).mean(dim=1)
+  mismatch = (actual != desired).float().sum(dim=1)
+  return torch.exp(-mismatch / sigma)
 
 
 def feet_air_time(

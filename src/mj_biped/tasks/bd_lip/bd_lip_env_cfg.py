@@ -72,14 +72,14 @@ BD_ARTICULATION = EntityArticulationInfoCfg(
   actuators=(
     BuiltinPdActuatorCfg(
       target_names_expr=("J_L0", "J_R0", "J_L4_ankle", "J_R4_ankle"),
-      stiffness=20.0,
-      damping=0.7,
+      stiffness=50.0,
+      damping=1.2,
       effort_limit=20.0,
     ),
     BuiltinPdActuatorCfg(
       target_names_expr=("J_L1", "J_R1", "J_L2", "J_R2", "J_L3", "J_R3"),
-      stiffness=20.0,
-      damping=0.7,
+      stiffness=60.0,
+      damping=1.5,
       effort_limit=20.0,
     ),
   ),
@@ -189,7 +189,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     "joint_pos": JointPositionActionCfg(
       entity_name="robot",
       actuator_names=BD_JOINT_NAMES,
-      scale=0.25,
+      scale=0.75,
       use_default_offset=True,
       preserve_order=True,
     )
@@ -200,9 +200,9 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       entity_name="robot",
       heading_command=True,
       heading_control_stiffness=1.0,
-      rel_standing_envs=0.2,
-      rel_heading_envs=1.0,
-      rel_forward_envs=0.0,
+      rel_standing_envs=0.1,
+      rel_heading_envs=0.3,
+      rel_forward_envs=0.6,
       resampling_time_range=(5.0, 5.0),
       debug_vis=True,
       ranges=UniformVelocityCommandCfg.Ranges(
@@ -215,7 +215,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     "gait_command": mdp.UniformGaitCommandCfg(
       resampling_time_range=(5.0, 5.0),
       ranges=mdp.UniformGaitCommandCfg.Ranges(
-        frequencies=(0.5, 1.0),
+        frequencies=(1.5, 2.5),
         offsets=(0.5, 0.5),
         durations=(0.5, 0.5),
       ),
@@ -280,12 +280,15 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ),
     "step_tracking": RewardTermCfg(
       func=mdp.step_command_tracking,
-      weight=3.0,
+      weight=2.0,
       params={
         "asset_cfg": feet_body_cfg,
         "command_name": "lip_step_command",
+        "gait_command_name": "gait_command",
+        "velocity_command_name": "base_velocity",
         "position_sigma": 0.05,
         "yaw_sigma": 0.25,
+        "command_threshold": 0.02,
       },
     ),
     "heading": RewardTermCfg(
@@ -306,7 +309,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ),
     "feet_air_time": RewardTermCfg(
       func=mdp.feet_air_time,
-      weight=1.0,
+      weight=2.0,
       params={
         "sensor_name": "feet_contact",
         "command_name": "base_velocity",
@@ -325,12 +328,12 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       weight=-1.0,
       params={"command_name": "base_height_command"},
     ),
-    "joint_torques": RewardTermCfg(func=env_mdp.joint_torques_l2, weight=-1.0e-3),
-    "joint_vel": RewardTermCfg(func=env_mdp.joint_vel_l2, weight=-1.0e-2),
+    "joint_torques": RewardTermCfg(func=env_mdp.joint_torques_l2, weight=-1.0e-4),
+    "joint_vel": RewardTermCfg(func=env_mdp.joint_vel_l2, weight=-1.0e-4),
     "joint_pos_limits": RewardTermCfg(func=env_mdp.joint_pos_limits, weight=-0.5),
     "stand_still": RewardTermCfg(
       func=mdp.stand_still,
-      weight=-0.05,
+      weight=-0.5,
       params={
         "command_name": "base_velocity",
         "lin_threshold": 0.02,
@@ -420,12 +423,12 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       nconmax=64,
       njmax=1500,
       mujoco=MujocoCfg(
-        timestep=0.005,
+        timestep=0.002,
         iterations=10,
         ls_iterations=20,
       ),
     ),
-    decimation=4,
+    decimation=10,
     episode_length_s=20.0,
     seed=42,
   )
@@ -438,10 +441,10 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       heading=(-math.pi / 4.0, math.pi / 4.0),
     )
     cfg.commands["base_velocity"].rel_standing_envs = 0.0
-    cfg.commands["lip_step_command"].nominal_step_width = 0.18
+    cfg.commands["lip_step_command"].nominal_step_width = 0.20
     cfg.commands["lip_step_command"].ranges = mdp.LipStepCommandCfg.Ranges(
       step_length=None,
-      step_width=(0.18, 0.18),
+      step_width=(0.18, 0.21),
       step_period_s=None,
     )
 

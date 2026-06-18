@@ -2,6 +2,15 @@
 <mujoco model="BD">
   <compiler angle="radian" meshdir="." balanceinertia="true" discardvisual="false" />
 
+  <option timestep="0.002" solver="Newton" jacobian="sparse">
+    <flag contact="enable"/>
+  </option>
+
+  <default>
+    <geom solref="0.002 1" solimp="0.9 0.95 0.001 0.5 2" />
+    <joint damping="0.1" armature="0.01" />
+  </default>
+
   <asset>
     <mesh name="base_link" file="meshes/base_link.STL" />
     <mesh name="L0_Link" file="meshes/L0_Link.STL" />
@@ -17,9 +26,13 @@
   </asset>
 
   <worldbody>
+    <geom name="__mjv_default_floor" type="plane" pos="0 0 0" size="0 0 0.125" friction="0.8 0.005 0.0001" contype="15" conaffinity="15" rgba="0.8 0.8 0.8 1"/>
     <body name="base_link">
-      <freejoint name="floating_base_joint" />
-      <inertial pos="0 0 0.036" mass="2" diaginertia="0.02 0.02 0.02" />
+      <freejoint name="floating_base_joint"/>
+      <!-- <joint name="floating_base_joint" type="slide" axis="0 0 1" range="-0.15 0.5"/> -->
+      <!-- <joint name="floating_base_joint_2" type="slide" axis="1 0 0" range="-0.5 0.5"/> -->
+
+      <inertial pos="0 0 0.036" mass="1" diaginertia="0.005 0.005 0.005" />
       <geom type="mesh" mesh="base_link" quat="0 0 0 1" contype="0" conaffinity="0" group="1" rgba="0.5 0.5 0.5 1" />
       <geom type="box" pos="0 0 0" size="0.11 0.08 0.08" contype="1" conaffinity="1" group="0" rgba="0.5 0.5 0.5 1" />
 
@@ -49,7 +62,7 @@
                 <inertial pos="0.0118 -0.0068 -0.0296" mass="0.15" diaginertia="0.0001 0.0003 0.0003" />
                 <joint name="J_L4_ankle" type="hinge" axis="0 1 0" limited="true" range="-0.3 0.8" />
                 <geom type="mesh" mesh="L4_Link_ankle" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" />
-                <geom type="box" pos="0.015 0 -0.044" size="0.07 0.025 0.005" contype="1" conaffinity="1" group="0" friction="1.0 0.01 0.001" rgba="1 1 1 1" />
+                <geom type="capsule" pos="0.015 0 -0.034" size="0.022 0.05" contype="1" conaffinity="1" group="0" friction="1.0 0.005 0.0001" condim="4" rgba="1 1 1 1" quat="0.7071 0 0.7071 0" />
               </body>
             </body>
           </body>
@@ -82,7 +95,7 @@
                 <inertial pos="0.0118 0.0067 -0.0296" mass="0.15" diaginertia="0.0001 0.0003 0.0003" />
                 <joint name="J_R4_ankle" type="hinge" axis="0 -1 0" limited="true" range="-0.8 0.3" />
                 <geom type="mesh" mesh="R4_Link_ankle" contype="0" conaffinity="0" group="1" rgba="1 0.9 0.9 1" />
-                <geom type="box" pos="0.015 0 -0.044" size="0.07 0.025 0.005" contype="1" conaffinity="1" group="0" friction="1.0 0.01 0.001" rgba="1 0.9 0.9 1" />
+                <geom type="capsule" pos="0.015 0 -0.034" size="0.022 0.05" contype="1" conaffinity="1" group="0" friction="1.0 0.005 0.0001" condim="4" rgba="1 0.9 0.9 1" quat="0.7071 0 0.7071 0" />
               </body>
             </body>
           </body>
