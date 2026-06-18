@@ -10,6 +10,19 @@ from mjlab.utils.lab_api import math as math_utils
 from mj_biped.tasks.bd_lip.mdp.lip import gait_phase_from_command
 
 
+def _contact_ordered(
+  data: torch.Tensor,
+  sensor: ContactSensor,
+  body_names: tuple[str, str],
+) -> torch.Tensor:
+  order = torch.tensor(
+    [sensor.primary_names.index(name) for name in body_names],
+    device=data.device,
+    dtype=torch.long,
+  )
+  return data.index_select(1, order)
+
+
 def step_command_tracking(
   env,
   asset_cfg: SceneEntityCfg,
@@ -38,19 +51,19 @@ def step_command_tracking(
   target_xy_w = torch.stack((command[:, 0:2], command[:, 3:5]), dim=1)
   target_yaw_w = torch.stack((command[:, 2], command[:, 5]), dim=1)
 
-  root_quat_rep = root_quat_w.unsqueeze(1).repeat(1, foot_pos_w.shape[1], 1)
+  root_quat_rep = root_quat_w.unsqueeze(1).expand(-1, foot_pos_w.shape[1], -1)
   foot_pos_b = math_utils.quat_apply_inverse(
-    root_quat_rep,
-    foot_pos_w - root_pos_w.unsqueeze(1),
-  )
+    root_quat_rep.reshape(-1, 4),
+    (foot_pos_w - root_pos_w.unsqueeze(1)).reshape(-1, 3),
+  ).reshape(foot_pos_w.shape)
 
   target_pos_w = torch.zeros(target_xy_w.shape[0], target_xy_w.shape[1], 3, device=env.device)
   target_pos_w[:, :, :2] = target_xy_w
   target_pos_w[:, :, 2] = root_pos_w[:, 2:3]
   target_pos_b = math_utils.quat_apply_inverse(
-    root_quat_rep,
-    target_pos_w - root_pos_w.unsqueeze(1),
-  )
+    root_quat_rep.reshape(-1, 4),
+    (target_pos_w - root_pos_w.unsqueeze(1)).reshape(-1, 3),
+  ).reshape(target_pos_w.shape)
 
   pos_err = torch.norm(foot_pos_b[:, :, :2] - target_pos_b[:, :, :2], dim=2)
   yaw_err = math_utils.wrap_to_pi(foot_yaw_w - target_yaw_w)
@@ -62,6 +75,7 @@ def step_command_tracking(
 def contact_schedule(
   env,
   sensor_name: str,
+  body_names: tuple[str, str],
   command_name: str = "gait_command",
   threshold: float = 1.0,
   sigma: float = 0.25,
@@ -74,11 +88,12 @@ def contact_schedule(
   desired = torch.stack((right_phase < duration, left_phase < duration), dim=1).float()
 
   if sensor.data.force is not None:
-    force_norm = torch.norm(sensor.data.force, dim=-1)
+    force = _contact_ordered(sensor.data.force, sensor, body_names)
+    force_norm = torch.norm(force, dim=-1)
     actual = (force_norm > threshold).float()
   else:
     assert sensor.data.found is not None
-    actual = (sensor.data.found > 0).float()
+    actual = (_contact_ordered(sensor.data.found, sensor, body_names) > 0).float()
 
   diff = actual - desired
   return torch.exp(-torch.square(diff) / sigma).mean(dim=1)
@@ -87,6 +102,7 @@ def contact_schedule(
 def feet_air_time(
   env,
   sensor_name: str,
+  body_names: tuple[str, str],
   command_name: str = "base_velocity",
   gait_command_name: str = "gait_command",
   threshold: float = 0.1,
@@ -97,7 +113,7 @@ def feet_air_time(
   single_support_only: bool = False,
 ) -> torch.Tensor:
   sensor: ContactSensor = env.scene[sensor_name]
-  last_air_time = sensor.data.last_air_time[:, :]
+  last_air_time = _contact_ordered(sensor.data.last_air_time[:, :], sensor, body_names)
 
   gait_cmd = env.command_manager.get_command(gait_command_name)
   freq = gait_cmd[:, 0].clamp(min=1.0e-3)
@@ -109,7 +125,7 @@ def feet_air_time(
 
   if dense:
     assert sensor.data.force is not None
-    contact_forces = sensor.data.force[:, :, 2]
+    contact_forces = _contact_ordered(sensor.data.force, sensor, body_names)[:, :, 2]
     in_air = contact_forces <= contact_force_threshold
     if single_support_only:
       single_support = in_air.sum(dim=1) == 1
@@ -119,7 +135,9 @@ def feet_air_time(
     if single_support_only:
       reward = reward * single_support.float()
   else:
-    first_contact = sensor.compute_first_contact(env.step_dt)
+    first_contact = _contact_ordered(
+      sensor.compute_first_contact(env.step_dt), sensor, body_names
+    )
     reward = torch.sum((last_air_time - dyn_threshold) * first_contact.float(), dim=1)
 
   reward *= torch.norm(env.command_manager.get_command(command_name)[:, :2], dim=1) > threshold
@@ -181,15 +199,17 @@ def foot_slip_penalty(
   env,
   sensor_name: str,
   asset_cfg: SceneEntityCfg,
+  body_names: tuple[str, str],
   contact_threshold: float = 1.0,
 ) -> torch.Tensor:
   sensor: ContactSensor = env.scene[sensor_name]
   asset: Entity = env.scene[asset_cfg.name]
   if sensor.data.force is not None:
-    in_contact = torch.norm(sensor.data.force, dim=-1) > contact_threshold
+    force = _contact_ordered(sensor.data.force, sensor, body_names)
+    in_contact = torch.norm(force, dim=-1) > contact_threshold
   else:
     assert sensor.data.found is not None
-    in_contact = sensor.data.found > 0
+    in_contact = _contact_ordered(sensor.data.found, sensor, body_names) > 0
   foot_vel_xy = asset.data.body_link_lin_vel_w[:, asset_cfg.body_ids, :2]
   slip_speed = torch.norm(foot_vel_xy, dim=2)
   return torch.mean(slip_speed * in_contact.float(), dim=1)

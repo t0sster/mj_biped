@@ -73,14 +73,22 @@ def robot_base_pose(env, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) ->
 def robot_contact_force(
   env,
   sensor_name: str,
+  body_names: tuple[str, str],
 ) -> torch.Tensor:
   sensor = env.scene[sensor_name]
   assert hasattr(sensor, "data")
+  order = torch.tensor(
+    [sensor.primary_names.index(name) for name in body_names],
+    device=env.device,
+    dtype=torch.long,
+  )
   force_history = sensor.data.force_history
   if force_history is not None:
+    force_history = force_history.index_select(1, order)
     return force_history.reshape(force_history.shape[0], -1)
   assert sensor.data.force is not None
-  return sensor.data.force.reshape(sensor.data.force.shape[0], -1)
+  force = sensor.data.force.index_select(1, order)
+  return force.reshape(force.shape[0], -1)
 
 
 def foot_state_b(

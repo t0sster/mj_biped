@@ -180,7 +180,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       "robot_joint_damping": ObservationTermCfg(func=mdp.robot_joint_damping),
       "feet_contact_force": ObservationTermCfg(
         func=mdp.robot_contact_force,
-        params={"sensor_name": "feet_contact"},
+        params={"sensor_name": "feet_contact", "body_names": FEET_BODY_NAMES},
       ),
     }
   )
@@ -245,15 +245,15 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       func=env_mdp.reset_root_state_uniform,
       mode="reset",
       params={
-        "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
+        "pose_range": {"x": (-0.1, 0.1), "y": (-0.1, 0.1), "yaw": (-3.14, 3.14)},
         "velocity_range": {
-          "x": (-0.5, 0.5),
-          "y": (-0.5, 0.5),
-          "z": (-0.5, 0.5),
-          "roll": (-0.5, 0.5),
-          "pitch": (-0.5, 0.5),
-          "yaw": (-0.5, 0.5),
-        },
+          "x": (0.0, 0.0),
+          "y": (0.0, 0.0),
+          "z": (0.0, 0.0),
+          "roll": (0.0, 0.0),
+          "pitch": (0.0, 0.0),
+          "yaw": (0.0, 0.0),
+        }
       },
     ),
     "reset_joints": EventTermCfg(
@@ -271,7 +271,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     "track_linear_velocity": RewardTermCfg(
       func=velocity_mdp.track_linear_velocity,
       weight=3.0,
-      params={"command_name": "base_velocity", "std": math.sqrt(0.02)},
+      params={"command_name": "base_velocity", "std": math.sqrt(0.05)},
     ),
     "track_angular_velocity": RewardTermCfg(
       func=velocity_mdp.track_angular_velocity,
@@ -299,17 +299,19 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       params={
         "sensor_name": "feet_contact",
         "command_name": "gait_command",
+        "body_names": FEET_BODY_NAMES,
         "threshold": 1.0,
         "sigma": 0.25,
       },
     ),
     "feet_air_time": RewardTermCfg(
       func=mdp.feet_air_time,
-      weight=0.0,
+      weight=1.0,
       params={
         "sensor_name": "feet_contact",
         "command_name": "base_velocity",
         "gait_command_name": "gait_command",
+        "body_names": FEET_BODY_NAMES,
         "threshold": 0.1,
         "swing_time_scale": 0.5,
         "min_threshold": 0.25,
@@ -341,6 +343,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       params={
         "sensor_name": "feet_contact",
         "asset_cfg": feet_body_cfg,
+        "body_names": FEET_BODY_NAMES,
         "contact_threshold": 1.0,
       },
     ),
