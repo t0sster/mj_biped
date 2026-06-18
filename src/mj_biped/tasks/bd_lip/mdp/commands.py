@@ -10,8 +10,8 @@ from mjlab.managers.command_manager import CommandTerm, CommandTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.utils.lab_api import math as math_utils
 
+from mj_biped.tasks.bd_lip.mdp.footstep_planners import PFootstepPlanner
 from mj_biped.tasks.bd_lip.mdp.lip import (
-  compute_xcom_step_targets_b,
   gait_phase_from_command,
 )
 
@@ -108,6 +108,8 @@ class LipStepCommandCfg(CommandTermCfg):
   heading_speed_eps: float = 1.0e-3
   stride_compensation_gain: float = 0.5
   stride_compensation_max_ratio: float = 0.5
+  turn_width_gain: float = 0.15
+  turn_length_gain: float = 0.10
   ranges: Ranges | None = None
 
   def build(self, env: ManagerBasedRlEnv) -> LipStepCommand:
@@ -135,12 +137,7 @@ class LipStepCommand(CommandTerm):
     self.forward_b = torch.tensor([1.0, 0.0, 0.0], device=self.device)
     self.swing_state = torch.zeros(self.num_envs, 2, dtype=torch.bool, device=self.device)
     self.frozen_targets_w = torch.zeros(self.num_envs, 2, 3, device=self.device)
-
-    self.use_step_length = cfg.nominal_step_length is not None
-    self.use_step_period = cfg.step_period_s is not None
-    if cfg.ranges is not None:
-      self.use_step_length |= cfg.ranges.step_length is not None
-      self.use_step_period |= cfg.ranges.step_period_s is not None
+    self.footstep_planner = PFootstepPlanner(cfg, self.device)
 
     self.step_length = torch.full(
       (self.num_envs, 1),
@@ -188,9 +185,6 @@ class LipStepCommand(CommandTerm):
     root_pos_w = self.robot.data.root_link_pos_w
     root_vel_w = self.robot.data.root_link_lin_vel_w
     root_quat_w = self.robot.data.root_link_quat_w
-    yaw_quat_w = math_utils.yaw_quat(root_quat_w)
-
-    base_heading_w = self.robot.data.heading_w.unsqueeze(1)
     foot_pos_w = self.robot.data.body_link_pos_w[:, self.foot_body_ids, :]
     foot_quat_w = self.robot.data.body_link_quat_w[:, self.foot_body_ids, :]
 
@@ -213,85 +207,23 @@ class LipStepCommand(CommandTerm):
     cmd = self._env.command_manager.get_command("base_velocity")
     cmd_vel_b = cmd[:, :2]
     cmd_wz = cmd[:, 2:3]
-    cmd_speed = torch.norm(cmd_vel_b, dim=1, keepdim=True)
-
-    if self.use_step_period:
-      step_time = self.step_period
-    elif self.cfg.step_period_s is None:
-      freq = gait_command[:, 0].clamp(min=1.0e-3)
-      step_time = (0.5 / freq).unsqueeze(1)
-    else:
-      step_time = torch.full(
-        (self.num_envs, 1),
-        self.cfg.step_period_s,
-        device=self.device,
-      )
-
-    vel_heading_b = torch.atan2(cmd_vel_b[:, 1], cmd_vel_b[:, 0]).unsqueeze(1)
-    step_heading_b = torch.where(
-      cmd_speed > self.cfg.heading_speed_eps,
-      vel_heading_b,
-      torch.zeros_like(vel_heading_b),
+    plan = self.footstep_planner.plan(
+      root_pos_w=root_pos_w,
+      root_vel_w=root_vel_w,
+      root_quat_w=root_quat_w,
+      foot_pos_w=foot_pos_w,
+      foot_quat_w=foot_quat_w,
+      cmd_vel_b=cmd_vel_b,
+      cmd_wz=cmd_wz,
+      gait_command=gait_command,
+      step_length_prior=self.step_length,
+      step_width_prior=self.step_width,
+      step_period_prior=self.step_period,
+      episode_length_buf=self._env.episode_length_buf,
+      step_dt=self._env.step_dt,
+      swing_right=swing_right,
+      swing_left=swing_left,
     )
-    target_heading_w = (
-      math_utils.wrap_to_pi(base_heading_w + cmd_wz * step_time)
-      if self.cfg.use_cmd_heading
-      else base_heading_w
-    )
-
-    root_pos_b = torch.zeros_like(root_pos_w)
-    root_pos_b[:, 2:3] = root_pos_w[:, 2:3]
-    root_vel_b = math_utils.quat_apply_inverse(yaw_quat_w, root_vel_w)
-
-    yaw_quat_rep = (
-      yaw_quat_w.unsqueeze(1).expand(-1, foot_pos_w.shape[1], -1).reshape(-1, 4)
-    )
-    foot_pos_b = math_utils.quat_apply_inverse(
-      yaw_quat_rep,
-      (foot_pos_w - root_pos_w.unsqueeze(1)).reshape(-1, 3),
-    ).reshape(foot_pos_w.shape)
-    support_pos_b = torch.where(
-      swing_right.unsqueeze(1),
-      foot_pos_b[:, 1, :],
-      foot_pos_b[:, 0, :],
-    )
-
-    if self.use_step_length:
-      step_length = self.step_length
-    else:
-      step_length = torch.norm(cmd_vel_b, dim=1, keepdim=True) * step_time
-
-    heading_dir_b = torch.stack(
-      (torch.cos(step_heading_b.squeeze(1)), torch.sin(step_heading_b.squeeze(1))),
-      dim=1,
-    )
-    speed_scale = cmd_vel_b[:, 0:1].abs() / (
-      cmd_vel_b[:, 0:1].abs() + cmd_vel_b[:, 1:2].abs() + 1.0e-6
-    )
-    delta_along = (
-      (foot_pos_b[:, 0, :2] - foot_pos_b[:, 1, :2]).mul(heading_dir_b).sum(dim=1, keepdim=True)
-    )
-    comp = self.cfg.stride_compensation_gain * speed_scale * delta_along
-    comp_limit = self.cfg.stride_compensation_max_ratio * step_length
-    comp = torch.clamp(comp, min=-comp_limit, max=comp_limit)
-    swing_sign = (swing_left.float() - swing_right.float()).unsqueeze(1)
-    step_length_eff = torch.clamp(step_length + swing_sign * comp, min=0.0)
-
-    target_b = compute_xcom_step_targets_b(
-      root_pos_b,
-      root_vel_b,
-      support_pos_b,
-      cmd_vel_b,
-      step_heading_b,
-      step_time,
-      self.step_width,
-      step_length_eff,
-      swing_left,
-    )
-
-    target_vec_b = torch.zeros_like(target_b)
-    target_vec_b[:, :2] = target_b[:, :2]
-    target_xy_w = root_pos_w[:, :2] + math_utils.quat_apply(yaw_quat_w, target_vec_b)[:, :2]
 
     foot_forward = self.forward_b.repeat(foot_quat_w.shape[0], 1)
     right_forward_w = math_utils.quat_apply(foot_quat_w[:, 0, :], foot_forward)
@@ -305,12 +237,12 @@ class LipStepCommand(CommandTerm):
 
     if swing_start[:, 0].any():
       right_ids = swing_start[:, 0]
-      self.frozen_targets_w[right_ids, 0, :2] = target_xy_w[right_ids]
-      self.frozen_targets_w[right_ids, 0, 2] = target_heading_w[right_ids, 0]
+      self.frozen_targets_w[right_ids, 0, :2] = plan.target_xy_w[right_ids]
+      self.frozen_targets_w[right_ids, 0, 2] = plan.target_heading_w[right_ids, 0]
     if swing_start[:, 1].any():
       left_ids = swing_start[:, 1]
-      self.frozen_targets_w[left_ids, 1, :2] = target_xy_w[left_ids]
-      self.frozen_targets_w[left_ids, 1, 2] = target_heading_w[left_ids, 0]
+      self.frozen_targets_w[left_ids, 1, :2] = plan.target_xy_w[left_ids]
+      self.frozen_targets_w[left_ids, 1, 2] = plan.target_heading_w[left_ids, 0]
 
     right_target = torch.zeros(self.num_envs, 3, device=self.device)
     left_target = torch.zeros(self.num_envs, 3, device=self.device)

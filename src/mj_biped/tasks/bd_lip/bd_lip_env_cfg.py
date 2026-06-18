@@ -280,7 +280,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ),
     "step_tracking": RewardTermCfg(
       func=mdp.step_command_tracking,
-      weight=3.0,
+      weight=2.0,
       params={
         "asset_cfg": feet_body_cfg,
         "command_name": "lip_step_command",
@@ -309,7 +309,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ),
     "feet_air_time": RewardTermCfg(
       func=mdp.feet_air_time,
-      weight=0.0,
+      weight=2.0,
       params={
         "sensor_name": "feet_contact",
         "command_name": "base_velocity",
@@ -329,8 +329,8 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       params={"command_name": "base_height_command", "height_sigma": 0.05},
     ),
     "joint_torques": RewardTermCfg(func=env_mdp.joint_torques_l2, weight=-1.0e-4),
-    "joint_vel": RewardTermCfg(func=env_mdp.joint_vel_l2, weight=-1.0e-3),
-    "joint_pos_limits": RewardTermCfg(func=env_mdp.joint_pos_limits, weight=-1.0),
+    "joint_vel": RewardTermCfg(func=env_mdp.joint_vel_l2, weight=-1.0e-4),
+    "joint_pos_limits": RewardTermCfg(func=env_mdp.joint_pos_limits, weight=-0.5),
     "stand_still": RewardTermCfg(
       func=mdp.stand_still,
       weight=-0.5,
@@ -353,7 +353,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     "action_acc": RewardTermCfg(func=env_mdp.action_acc_l2, weight=-1.0e-3),
     "ang_vel_xy": RewardTermCfg(func=mdp.ang_vel_xy_l2, weight=-1.0e-2),
     "lin_vel_z": RewardTermCfg(func=mdp.lin_vel_z_l2, weight=-1.0e-1),
-    "flat_orientation": RewardTermCfg(func=mdp.flat_orientation_l2, weight=-2.0),
+    "flat_orientation": RewardTermCfg(func=mdp.flat_orientation_l2, weight=-1.0),
   }
 
   terminations = {

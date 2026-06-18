@@ -63,8 +63,9 @@ def compute_xcom_step_targets_b(
   else:
     offset_y = -lateral_offset
 
+  command_bias_xy_b = 0.5 * cmd_vel_xy_b * step_time
   target_b = torch.zeros(root_pos_b.shape[0], 3, device=root_pos_b.device)
-  target_b[:, 0] = (eicp_x + offset_x).squeeze(1)
-  target_b[:, 1] = (eicp_y + offset_y).squeeze(1)
+  target_b[:, 0] = (eicp_x + offset_x + command_bias_xy_b[:, 0:1]).squeeze(1)
+  target_b[:, 1] = (eicp_y + offset_y + command_bias_xy_b[:, 1:2]).squeeze(1)
   target_b[:, 2] = heading_b.squeeze(1) if heading_b.dim() > 1 else heading_b
   return target_b
