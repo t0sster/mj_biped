@@ -208,7 +208,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       ranges=UniformVelocityCommandCfg.Ranges(
         lin_vel_x=(-0.2, 0.3),
         lin_vel_y=(-0.1, 0.1),
-        ang_vel_z=(-0.1, 0.1),
+        ang_vel_z=(-0.15, 0.15),
         heading=(-math.pi / 4.0, math.pi / 4.0),
       ),
     ),
@@ -216,8 +216,8 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       resampling_time_range=(5.0, 5.0),
       ranges=mdp.UniformGaitCommandCfg.Ranges(
         frequencies=(1.5, 2.5),
-        offsets=(0.5, 0.5),
-        durations=(0.5, 0.5),
+        offsets=(0.45, 0.55),
+        durations=(0.45, 0.55),
       ),
     ),
     "lip_step_command": mdp.LipStepCommandCfg(
@@ -271,16 +271,16 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     "track_linear_velocity": RewardTermCfg(
       func=velocity_mdp.track_linear_velocity,
       weight=3.0,
-      params={"command_name": "base_velocity", "std": math.sqrt(0.05)},
+      params={"command_name": "base_velocity", "std": math.sqrt(0.25)},
     ),
     "track_angular_velocity": RewardTermCfg(
       func=velocity_mdp.track_angular_velocity,
       weight=2.0,
-      params={"command_name": "base_velocity", "std": math.sqrt(0.1)},
+      params={"command_name": "base_velocity", "std": math.sqrt(0.25)},
     ),
     "step_tracking": RewardTermCfg(
       func=mdp.step_command_tracking,
-      weight=2.0,
+      weight=3.0,
       params={
         "asset_cfg": feet_body_cfg,
         "command_name": "lip_step_command",
@@ -309,7 +309,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ),
     "feet_air_time": RewardTermCfg(
       func=mdp.feet_air_time,
-      weight=2.0,
+      weight=0.0,
       params={
         "sensor_name": "feet_contact",
         "command_name": "base_velocity",
@@ -324,13 +324,13 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       },
     ),
     "base_height": RewardTermCfg(
-      func=mdp.base_height_tracking_l2,
-      weight=-1.0,
-      params={"command_name": "base_height_command"},
+      func=mdp.base_height_tracking_exp,
+      weight=1.0,
+      params={"command_name": "base_height_command", "height_sigma": 0.05},
     ),
     "joint_torques": RewardTermCfg(func=env_mdp.joint_torques_l2, weight=-1.0e-4),
-    "joint_vel": RewardTermCfg(func=env_mdp.joint_vel_l2, weight=-1.0e-4),
-    "joint_pos_limits": RewardTermCfg(func=env_mdp.joint_pos_limits, weight=-0.5),
+    "joint_vel": RewardTermCfg(func=env_mdp.joint_vel_l2, weight=-1.0e-3),
+    "joint_pos_limits": RewardTermCfg(func=env_mdp.joint_pos_limits, weight=-1.0),
     "stand_still": RewardTermCfg(
       func=mdp.stand_still,
       weight=-0.5,
@@ -353,7 +353,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     "action_acc": RewardTermCfg(func=env_mdp.action_acc_l2, weight=-1.0e-3),
     "ang_vel_xy": RewardTermCfg(func=mdp.ang_vel_xy_l2, weight=-1.0e-2),
     "lin_vel_z": RewardTermCfg(func=mdp.lin_vel_z_l2, weight=-1.0e-1),
-    "flat_orientation": RewardTermCfg(func=mdp.flat_orientation_l2, weight=-1.0),
+    "flat_orientation": RewardTermCfg(func=mdp.flat_orientation_l2, weight=-2.0),
   }
 
   terminations = {
@@ -424,8 +424,9 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       njmax=1500,
       mujoco=MujocoCfg(
         timestep=0.002,
-        iterations=10,
-        ls_iterations=20,
+        integrator="implicitfast",
+        iterations=4,
+        ls_iterations=4,
       ),
     ),
     decimation=10,
@@ -444,7 +445,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg.commands["lip_step_command"].nominal_step_width = 0.20
     cfg.commands["lip_step_command"].ranges = mdp.LipStepCommandCfg.Ranges(
       step_length=None,
-      step_width=(0.18, 0.21),
+      step_width=(0.20, 0.20),
       step_period_s=None,
     )
 
@@ -476,10 +477,10 @@ def bd_lip_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
       value_loss_coef=1.0,
       use_clipped_value_loss=True,
       clip_param=0.2,
-      entropy_coef=0.01,
+      entropy_coef=0.005,
       num_learning_epochs=5,
       num_mini_batches=4,
-      learning_rate=1.0e-3,
+      learning_rate=5.0e-4,
       schedule="adaptive",
       gamma=0.99,
       lam=0.95,

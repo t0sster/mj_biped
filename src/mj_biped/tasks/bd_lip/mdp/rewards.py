@@ -184,14 +184,27 @@ def heading_tracking(
   return torch.exp(-torch.square(err) / heading_sigma).squeeze(1)
 
 
+def base_height_tracking_exp(
+  env,
+  command_name: str = "base_height_command",
+  asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+  height_sigma: float = 0.02,
+) -> torch.Tensor:
+  asset: Entity = env.scene[asset_cfg.name]
+  target = env.command_manager.get_command(command_name).squeeze(1)
+  err = asset.data.root_link_pos_w[:, 2] - target
+  return torch.exp(-torch.square(err) / height_sigma)
+
+
 def base_height_tracking_l2(
   env,
   command_name: str = "base_height_command",
   asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
-  asset: Entity = env.scene[asset_cfg.name]
-  target = env.command_manager.get_command(command_name).squeeze(1)
-  return torch.square(asset.data.root_link_pos_w[:, 2] - target)
+  return torch.square(
+    env.scene[asset_cfg.name].data.root_link_pos_w[:, 2]
+    - env.command_manager.get_command(command_name).squeeze(1)
+  )
 
 
 def stand_still(

@@ -12,6 +12,7 @@ wheels/
 # Paths
 logs/
 wandb/
+mj_biped.code-workspace
 
 # Environment
 .vscode/
