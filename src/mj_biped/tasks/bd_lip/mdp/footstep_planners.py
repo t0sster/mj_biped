@@ -104,6 +104,7 @@ class PFootstepPlanner:
       freq = gait_command[:, 0].clamp(min=1.0e-3)
       step_time = (0.5 / freq).unsqueeze(1)
 
+    cmd_forward = cmd_vel_b[:, 0:1]
     cmd_speed = torch.norm(cmd_vel_b, dim=1, keepdim=True)
     step_heading_b = torch.where(
       cmd_speed > self.cfg.heading_speed_eps,
@@ -116,7 +117,7 @@ class PFootstepPlanner:
     elif self.cfg.nominal_step_length is not None:
       nominal_step_length = torch.full_like(step_time, self.cfg.nominal_step_length)
     else:
-      nominal_step_length = cmd_speed * step_time
+      nominal_step_length = torch.abs(cmd_forward) * step_time
     turn_length_boost = self.cfg.turn_length_gain * torch.abs(cmd_wz) * step_time
     step_length = torch.clamp(
       nominal_step_length + turn_length_boost,
@@ -128,7 +129,10 @@ class PFootstepPlanner:
       nominal_step_width = step_width_prior
     else:
       nominal_step_width = torch.full_like(step_time, self.cfg.nominal_step_width)
-    step_width = nominal_step_width + self.cfg.turn_width_gain * torch.abs(cmd_wz) * step_time
+    step_width = (
+      nominal_step_width
+      + self.cfg.turn_width_gain * torch.abs(cmd_wz) * step_time
+    )
     step_width = torch.clamp(step_width, min=0.05)
     step_width = torch.clamp(
       step_width,
@@ -159,11 +163,12 @@ class PFootstepPlanner:
     )
     velocity_error_b = cmd_vel_b - root_vel_b[:, :2]
     velocity_correction_b = self.cfg.stride_compensation_gain * velocity_error_b * step_time
-    correction_limit = self.cfg.stride_compensation_max_ratio * torch.clamp(step_length, min=0.05)
+    forward_limit = self.cfg.stride_compensation_max_ratio * torch.clamp(step_length, min=0.05)
+    lateral_limit = self.cfg.stride_compensation_max_ratio * torch.clamp(step_width, min=0.05)
     velocity_correction_b = torch.clamp(
       velocity_correction_b,
-      min=-correction_limit,
-      max=correction_limit,
+      min=torch.cat((-forward_limit, -lateral_limit), dim=1),
+      max=torch.cat((forward_limit, lateral_limit), dim=1),
     )
     target_b[:, :2] = target_b[:, :2] + velocity_correction_b
 

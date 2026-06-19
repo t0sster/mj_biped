@@ -106,10 +106,10 @@ class LipStepCommandCfg(CommandTermCfg):
   step_period_s: float | None = None
   use_cmd_heading: bool = True
   heading_speed_eps: float = 1.0e-3
-  stride_compensation_gain: float = 0.5
-  stride_compensation_max_ratio: float = 0.5
-  turn_width_gain: float = 0.15
-  turn_length_gain: float = 0.10
+  stride_compensation_gain: float = 0.75
+  stride_compensation_max_ratio: float = 0.75
+  turn_width_gain: float = 0.25
+  turn_length_gain: float = 0.20
   ranges: Ranges | None = None
 
   def build(self, env: ManagerBasedRlEnv) -> LipStepCommand:
