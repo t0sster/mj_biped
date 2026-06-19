@@ -14,6 +14,7 @@ from mjlab.managers.action_manager import ActionTermCfg
 from mjlab.managers.command_manager import CommandTermCfg
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
+from mjlab.managers.metrics_manager import MetricsTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
@@ -156,7 +157,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
         "joint_vel": ObservationTermCfg(
           func=env_mdp.joint_vel_rel,
-          noise=Unoise(n_min=-0.1, n_max=0.1),
+          noise=Unoise(n_min=-0.05, n_max=0.05),
         ),
       },
       concatenate_terms=True,
@@ -189,7 +190,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     "joint_pos": JointPositionActionCfg(
       entity_name="robot",
       actuator_names=BD_JOINT_NAMES,
-      scale=0.75,
+      scale=0.25,
       use_default_offset=True,
       preserve_order=True,
     )
@@ -201,14 +202,14 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       heading_command=True,
       heading_control_stiffness=1.0,
       rel_standing_envs=0.05,
-      rel_heading_envs=0.3,
-      rel_forward_envs=0.3,
+      rel_heading_envs=0.7,
+      rel_forward_envs=0.25,
       resampling_time_range=(5.0, 5.0),
       debug_vis=True,
       ranges=UniformVelocityCommandCfg.Ranges(
         lin_vel_x=(-0.2, 0.3),
         lin_vel_y=(-0.15, 0.15),
-        ang_vel_z=(-0.25, 0.25),
+        ang_vel_z=(-0.5, 0.5),
         heading=(-math.pi / 4, math.pi / 4),
       ),
     ),
@@ -227,6 +228,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       nominal_step_width=0.22,
       step_period_s=None,
       use_cmd_heading=True,
+      debug_vis=play,
       resampling_time_range=(1.0e6, 1.0e6),
       ranges=mdp.LipStepCommandCfg.Ranges(
         step_length=None,
@@ -271,7 +273,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     "track_linear_velocity": RewardTermCfg(
       func=velocity_mdp.track_linear_velocity,
       weight=3.0,
-      params={"command_name": "base_velocity", "std": math.sqrt(0.05)},
+      params={"command_name": "base_velocity", "std": math.sqrt(0.1)},
     ),
     "track_angular_velocity": RewardTermCfg(
       func=velocity_mdp.track_angular_velocity,
@@ -286,14 +288,14 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "command_name": "lip_step_command",
         "gait_command_name": "gait_command",
         "velocity_command_name": "base_velocity",
-        "position_sigma": 0.05,
-        "yaw_sigma": 0.25,
+        "position_sigma": 0.1,
+        "yaw_sigma": 0.15,
         "command_threshold": 0.02,
       },
     ),
     "heading": RewardTermCfg(
       func=mdp.heading_tracking,
-      weight=2.0,
+      weight=0.0,
       params={"command_name": "base_velocity", "heading_sigma": 0.15},
     ),
     "contact_schedule": RewardTermCfg(
@@ -302,35 +304,36 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       params={
         "sensor_name": "feet_contact",
         "command_name": "gait_command",
+        "velocity_command_name": "base_velocity",
         "body_names": FEET_BODY_NAMES,
+        "command_threshold": 0.02,
         "threshold": 1.0,
         "sigma": 0.25,
       },
     ),
     "feet_air_time": RewardTermCfg(
       func=mdp.feet_air_time,
-      weight=0.5,
+      weight=2.0,
       params={
-        "sensor_name": "feet_contact",
-        "command_name": "base_velocity",
-        "gait_command_name": "gait_command",
-        "body_names": FEET_BODY_NAMES,
-        "threshold": 0.1,
-        "swing_time_scale": 0.5,
-        "min_threshold": 0.1,
-        "dense": True,
-        "contact_force_threshold": 0.1,
-        "single_support_only": False,
+          "sensor_name": "feet_contact",
+          "command_name": "base_velocity",
+          "gait_command_name": "gait_command",
+          "body_names": FEET_BODY_NAMES,
+          "threshold": 0.03,
+          "swing_time_scale": 1.0,
+          "min_threshold": 0.1,
+          "contact_force_threshold": 1.0,
+          "sigma": 0.25,
       },
     ),
     "base_height": RewardTermCfg(
       func=mdp.base_height_tracking_exp,
       weight=1.0,
-      params={"command_name": "base_height_command", "height_sigma": 0.05},
+      params={"command_name": "base_height_command", "height_sigma": 0.15},
     ),
     "joint_torques": RewardTermCfg(func=env_mdp.joint_torques_l2, weight=-1.0e-4),
     "joint_vel": RewardTermCfg(func=env_mdp.joint_vel_l2, weight=-1.0e-4),
-    "joint_pos_limits": RewardTermCfg(func=env_mdp.joint_pos_limits, weight=-0.5),
+    "joint_pos_limits": RewardTermCfg(func=env_mdp.joint_pos_limits, weight=-1e-1),
     "stand_still": RewardTermCfg(
       func=mdp.stand_still,
       weight=-0.5,
@@ -353,7 +356,38 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     "action_acc": RewardTermCfg(func=env_mdp.action_acc_l2, weight=-1.0e-3),
     "ang_vel_xy": RewardTermCfg(func=mdp.ang_vel_xy_l2, weight=-1.0e-2),
     "lin_vel_z": RewardTermCfg(func=mdp.lin_vel_z_l2, weight=-1.0e-2),
-    "flat_orientation": RewardTermCfg(func=mdp.flat_orientation_l2, weight=-0.5),
+    "flat_orientation": RewardTermCfg(func=mdp.flat_orientation_l2, weight=-2.0),
+  }
+
+  metrics = {
+    "base_velocity_xy_error": MetricsTermCfg(
+      func=mdp.base_velocity_xy_error,
+      params={"command_name": "base_velocity"},
+    ),
+    "base_velocity_yaw_error": MetricsTermCfg(
+      func=mdp.base_velocity_yaw_error,
+      params={"command_name": "base_velocity"},
+    ),
+    "step_tracking_position_error": MetricsTermCfg(
+      func=mdp.step_tracking_position_error,
+      params={
+        "asset_cfg": feet_body_cfg,
+        "command_name": "lip_step_command",
+        "gait_command_name": "gait_command",
+        "velocity_command_name": "base_velocity",
+        "command_threshold": 0.02,
+      },
+    ),
+    "step_tracking_yaw_error": MetricsTermCfg(
+      func=mdp.step_tracking_yaw_error,
+      params={
+        "asset_cfg": feet_body_cfg,
+        "command_name": "lip_step_command",
+        "gait_command_name": "gait_command",
+        "velocity_command_name": "base_velocity",
+        "command_threshold": 0.02,
+      },
+    ),
   }
 
   terminations = {
@@ -410,6 +444,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     commands=commands,
     events=events,
     rewards=rewards,
+    metrics=metrics,
     terminations=terminations,
     viewer=ViewerConfig(
       origin_type=ViewerConfig.OriginType.ASSET_BODY,
@@ -439,8 +474,10 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       lin_vel_x=(-0.2, 0.4),
       lin_vel_y=(-0.15, 0.15),
       ang_vel_z=(-0.1, 0.1),
-      heading=(-math.pi / 4.0, math.pi / 4.0),
+      heading=None,
     )
+    cfg.commands["base_velocity"].heading_command = False
+    cfg.commands["base_velocity"].rel_heading_envs = 0.0
     cfg.commands["base_velocity"].rel_standing_envs = 0.0
     cfg.commands["lip_step_command"].nominal_step_width = 0.20
     cfg.commands["lip_step_command"].ranges = mdp.LipStepCommandCfg.Ranges(

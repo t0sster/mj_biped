@@ -122,26 +122,13 @@ class PFootstepPlanner:
       nominal_step_length = torch.full_like(step_time, self.cfg.nominal_step_length)
     else:
       nominal_step_length = cmd_speed * step_time
-    turn_length_boost = self.cfg.turn_length_gain * torch.abs(cmd_wz) * step_time
-    step_length = torch.clamp(
-      nominal_step_length + turn_length_boost,
-      min=0.0,
-      max=0.35,
-    )
+    step_length = torch.clamp(nominal_step_length, min=0.0, max=0.35)
 
     if step_width_prior is not None and torch.any(step_width_prior.abs() > 1.0e-8):
       nominal_step_width = step_width_prior
     else:
       nominal_step_width = torch.full_like(step_time, self.cfg.nominal_step_width)
-    step_width = (
-      nominal_step_width
-      + self.cfg.turn_width_gain * torch.abs(cmd_wz) * step_time
-    )
-    step_width = torch.clamp(step_width, min=0.05)
-    step_width = torch.clamp(
-      step_width,
-      max=(1.0 + self.cfg.stride_compensation_max_ratio) * nominal_step_width,
-    )
+    step_width = torch.clamp(nominal_step_width, min=0.05)
 
     target_heading_w = (
       math_utils.wrap_to_pi(self._base_heading(root_quat_w) + cmd_wz * step_time)
@@ -184,6 +171,15 @@ class PFootstepPlanner:
       step_length_eff,
       swing_left,
     )
+
+    # Make yaw command affect the touchdown geometry, not only the final heading.
+    # This rotates the planned step vector in the yaw-base frame.
+    turn_angle = self.cfg.turn_length_gain * cmd_wz * step_time
+    turn_cos = torch.cos(turn_angle)
+    turn_sin = torch.sin(turn_angle)
+    target_xy_b = target_b[:, :2].clone()
+    target_b[:, 0] = turn_cos.squeeze(1) * target_xy_b[:, 0] - turn_sin.squeeze(1) * target_xy_b[:, 1]
+    target_b[:, 1] = turn_sin.squeeze(1) * target_xy_b[:, 0] + turn_cos.squeeze(1) * target_xy_b[:, 1]
 
     target_vec_b = torch.zeros_like(target_b)
     target_vec_b[:, :2] = target_b[:, :2]

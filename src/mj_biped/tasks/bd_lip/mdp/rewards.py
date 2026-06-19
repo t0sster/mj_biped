@@ -93,11 +93,128 @@ def step_command_tracking(
   return torch.where(moving, reward, torch.ones_like(reward))
 
 
+def step_tracking_position_error(
+  env,
+  asset_cfg: SceneEntityCfg,
+  command_name: str = "lip_step_command",
+  gait_command_name: str = "gait_command",
+  velocity_command_name: str = "base_velocity",
+  command_threshold: float = 0.1,
+) -> torch.Tensor:
+  asset: Entity = env.scene[asset_cfg.name]
+  foot_pos_w = asset.data.body_link_pos_w[:, asset_cfg.body_ids, :]
+  root_pos_w = asset.data.root_link_pos_w
+  root_quat_w = asset.data.root_link_quat_w
+
+  command = env.command_manager.get_command(command_name)
+  target_xy_w = torch.stack((command[:, 0:2], command[:, 3:5]), dim=1)
+
+  root_quat_rep = root_quat_w.unsqueeze(1).expand(-1, foot_pos_w.shape[1], -1)
+  foot_pos_b = math_utils.quat_apply_inverse(
+    root_quat_rep.reshape(-1, 4),
+    (foot_pos_w - root_pos_w.unsqueeze(1)).reshape(-1, 3),
+  ).reshape(foot_pos_w.shape)
+
+  target_pos_w = torch.zeros(target_xy_w.shape[0], target_xy_w.shape[1], 3, device=env.device)
+  target_pos_w[:, :, :2] = target_xy_w
+  target_pos_w[:, :, 2] = root_pos_w[:, 2:3]
+  target_pos_b = math_utils.quat_apply_inverse(
+    root_quat_rep.reshape(-1, 4),
+    (target_pos_w - root_pos_w.unsqueeze(1)).reshape(-1, 3),
+  ).reshape(target_pos_w.shape)
+
+  pos_err = torch.norm(foot_pos_b[:, :, :2] - target_pos_b[:, :, :2], dim=2)
+
+  gait_command = env.command_manager.get_command(gait_command_name)
+  right_phase, left_phase, duration = gait_phase_from_command(
+    env.episode_length_buf, env.step_dt, gait_command
+  )
+  right_swing = right_phase >= duration
+  left_swing = left_phase >= duration
+
+  tie_break = (right_swing & left_swing) | ((~right_swing) & (~left_swing))
+  right_swing[tie_break] = right_phase[tie_break] > left_phase[tie_break]
+  left_swing[tie_break] = ~right_swing[tie_break]
+  swing_mask = torch.stack((right_swing, left_swing), dim=1).float()
+
+  moving = torch.norm(env.command_manager.get_command(velocity_command_name)[:, :2], dim=1)
+  moving = moving > command_threshold
+  swing_count = torch.clamp(swing_mask.sum(dim=1), min=1.0)
+  mean_pos_err = torch.sum(pos_err * swing_mask, dim=1) / swing_count
+  return torch.where(moving, mean_pos_err, torch.zeros_like(mean_pos_err))
+
+
+def step_tracking_yaw_error(
+  env,
+  asset_cfg: SceneEntityCfg,
+  command_name: str = "lip_step_command",
+  gait_command_name: str = "gait_command",
+  velocity_command_name: str = "base_velocity",
+  command_threshold: float = 0.1,
+) -> torch.Tensor:
+  asset: Entity = env.scene[asset_cfg.name]
+  foot_quat_w = asset.data.body_link_quat_w[:, asset_cfg.body_ids, :]
+
+  forward_b = torch.tensor([1.0, 0.0, 0.0], device=env.device).repeat(env.num_envs, 1)
+  foot_forward_w = torch.stack(
+    (
+      math_utils.quat_apply(foot_quat_w[:, 0, :], forward_b),
+      math_utils.quat_apply(foot_quat_w[:, 1, :], forward_b),
+    ),
+    dim=1,
+  )
+  foot_yaw_w = torch.atan2(foot_forward_w[:, :, 1], foot_forward_w[:, :, 0])
+
+  command = env.command_manager.get_command(command_name)
+  target_yaw_w = torch.stack((command[:, 2], command[:, 5]), dim=1)
+  yaw_err = torch.abs(math_utils.wrap_to_pi(foot_yaw_w - target_yaw_w))
+
+  gait_command = env.command_manager.get_command(gait_command_name)
+  right_phase, left_phase, duration = gait_phase_from_command(
+    env.episode_length_buf, env.step_dt, gait_command
+  )
+  right_swing = right_phase >= duration
+  left_swing = left_phase >= duration
+
+  tie_break = (right_swing & left_swing) | ((~right_swing) & (~left_swing))
+  right_swing[tie_break] = right_phase[tie_break] > left_phase[tie_break]
+  left_swing[tie_break] = ~right_swing[tie_break]
+  swing_mask = torch.stack((right_swing, left_swing), dim=1).float()
+
+  moving = torch.norm(env.command_manager.get_command(velocity_command_name)[:, :2], dim=1)
+  moving = moving > command_threshold
+  swing_count = torch.clamp(swing_mask.sum(dim=1), min=1.0)
+  mean_yaw_err = torch.sum(yaw_err * swing_mask, dim=1) / swing_count
+  return torch.where(moving, mean_yaw_err, torch.zeros_like(mean_yaw_err))
+
+
+def base_velocity_xy_error(
+  env,
+  command_name: str = "base_velocity",
+  asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+  asset: Entity = env.scene[asset_cfg.name]
+  command = env.command_manager.get_command(command_name)
+  return torch.norm(command[:, :2] - asset.data.root_link_lin_vel_b[:, :2], dim=1)
+
+
+def base_velocity_yaw_error(
+  env,
+  command_name: str = "base_velocity",
+  asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+  asset: Entity = env.scene[asset_cfg.name]
+  command = env.command_manager.get_command(command_name)
+  return torch.abs(command[:, 2] - asset.data.root_link_ang_vel_b[:, 2])
+
+
 def contact_schedule(
   env,
   sensor_name: str,
   body_names: tuple[str, str],
   command_name: str = "gait_command",
+  velocity_command_name: str = "base_velocity",
+  command_threshold: float = 0.05,
   threshold: float = 1.0,
   sigma: float = 0.25,
 ) -> torch.Tensor:
@@ -117,7 +234,14 @@ def contact_schedule(
     actual = _contact_ordered(sensor.data.found, sensor, body_names) > 0
 
   mismatch = (actual != desired).float().sum(dim=1)
-  return torch.exp(-mismatch / sigma)
+  reward = torch.exp(-mismatch / sigma)
+
+  velocity_command = env.command_manager.get_command(velocity_command_name)
+  command_norm = torch.norm(velocity_command[:, :2], dim=1) + torch.abs(
+    velocity_command[:, 2]
+  )
+  moving = command_norm > command_threshold
+  return torch.where(moving, reward, torch.ones_like(reward))
 
 
 def feet_air_time(
@@ -127,11 +251,10 @@ def feet_air_time(
   command_name: str = "base_velocity",
   gait_command_name: str = "gait_command",
   threshold: float = 0.1,
-  swing_time_scale: float = 0.5,
-  min_threshold: float = 0.05,
-  dense: bool = False,
+  swing_time_scale: float = 1.0,
+  min_threshold: float = 0.1,
   contact_force_threshold: float = 1.0,
-  single_support_only: bool = False,
+  sigma: float = 0.05,
 ) -> torch.Tensor:
   sensor: ContactSensor = env.scene[sensor_name]
   last_air_time = _contact_ordered(sensor.data.last_air_time[:, :], sensor, body_names)
@@ -139,29 +262,23 @@ def feet_air_time(
   gait_cmd = env.command_manager.get_command(gait_command_name)
   freq = gait_cmd[:, 0].clamp(min=1.0e-3)
   duration = gait_cmd[:, 2].clamp(0.05, 0.95)
+  
   swing_time = (1.0 - duration) / freq
   dyn_threshold = torch.clamp(
     swing_time_scale * swing_time, min=min_threshold
   ).unsqueeze(1)
 
-  if dense:
-    assert sensor.data.force is not None
-    contact_forces = _contact_ordered(sensor.data.force, sensor, body_names)[:, :, 2]
-    in_air = contact_forces <= contact_force_threshold
-    if single_support_only:
-      single_support = in_air.sum(dim=1) == 1
-    denom = torch.clamp(dyn_threshold, min=1.0e-6)
-    air_ratio = torch.clamp(last_air_time / denom, max=1.0)
-    reward = torch.mean(air_ratio * in_air.float(), dim=1)
-    if single_support_only:
-      reward = reward * single_support.float()
-  else:
-    first_contact = _contact_ordered(
-      sensor.compute_first_contact(env.step_dt), sensor, body_names
-    )
-    reward = torch.sum((last_air_time - dyn_threshold) * first_contact.float(), dim=1)
+  first_contact = _contact_ordered(
+    sensor.compute_first_contact(env.step_dt), sensor, body_names
+  )
 
-  reward *= torch.norm(env.command_manager.get_command(command_name)[:, :2], dim=1) > threshold
+  air_time_error = torch.square(last_air_time - dyn_threshold)
+  reward_per_leg = torch.exp(-air_time_error / sigma)
+  reward = torch.sum(reward_per_leg * first_contact.float(), dim=1)
+
+  cmd_vel = env.command_manager.get_command(command_name)[:, :2]
+  reward *= torch.norm(cmd_vel, dim=1) > threshold
+  
   return reward
 
 
@@ -178,11 +295,12 @@ def heading_tracking(
   base_forward = math_utils.quat_apply(base_quat, forward)
   base_heading = torch.atan2(base_forward[:, 1], base_forward[:, 0]).unsqueeze(1)
 
-  command = env.command_manager.get_command(command_name)
+  command_term = env.command_manager.get_term(command_name)
+  command = command_term.command
   cmd_vel = command[:, :2]
   cmd_speed = torch.norm(cmd_vel, dim=1, keepdim=True)
-  if command.shape[1] > 3:
-    desired_heading = command[:, 3:4]
+  if hasattr(command_term, "heading_target"):
+    desired_heading = getattr(command_term, "heading_target").unsqueeze(1)
   else:
     vel_heading = torch.atan2(cmd_vel[:, 1], cmd_vel[:, 0]).unsqueeze(1)
     desired_heading = math_utils.wrap_to_pi(base_heading + vel_heading)

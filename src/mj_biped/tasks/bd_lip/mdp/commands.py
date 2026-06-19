@@ -106,10 +106,10 @@ class LipStepCommandCfg(CommandTermCfg):
   step_period_s: float | None = None
   use_cmd_heading: bool = True
   heading_speed_eps: float = 1.0e-3
-  stride_compensation_gain: float = 0.5
+  stride_compensation_gain: float = 0.0
   stride_compensation_max_ratio: float = 0.5
   turn_width_gain: float = 0.15
-  turn_length_gain: float = 0.10
+  turn_length_gain: float = 1.0
   ranges: Ranges | None = None
 
   def build(self, env: ManagerBasedRlEnv) -> LipStepCommand:
@@ -152,6 +152,7 @@ class LipStepCommand(CommandTerm):
       cfg.step_period_s if cfg.step_period_s is not None else 0.0,
       device=self.device,
     )
+    self._viz_radius = 0.5 * cfg.nominal_step_width if cfg.nominal_step_width > 0.0 else 0.03
 
   @property
   def command(self) -> torch.Tensor:
@@ -265,6 +266,71 @@ class LipStepCommand(CommandTerm):
 
     self.step_target_command[:, 0:3] = right_target
     self.step_target_command[:, 3:6] = left_target
+
+  def _debug_vis_impl(self, visualizer) -> None:
+    env_indices = visualizer.get_env_indices(self.num_envs)
+    if not env_indices:
+      return
+
+    step_targets = self.step_target_command
+    foot_pos_w = self.robot.data.body_link_pos_w[:, self.foot_body_ids, :]
+    swing_now = self.swing_state
+    target_z = 0.02
+
+    for i in env_indices:
+      right_target = step_targets[i, 0:3].cpu().numpy()
+      left_target = step_targets[i, 3:6].cpu().numpy()
+      right_actual = foot_pos_w[i, 0].cpu().numpy()
+      left_actual = foot_pos_w[i, 1].cpu().numpy()
+
+      right_target_vis = right_target.copy()
+      left_target_vis = left_target.copy()
+      right_target_vis[2] = target_z
+      left_target_vis[2] = target_z
+
+      # Target markers stay fixed in world coordinates during swing.
+      visualizer.add_sphere(
+        center=right_target_vis,
+        radius=self._viz_radius,
+        color=(1.0, 0.0, 0.0, 0.35),
+        label=f"step_target_right_{i}",
+      )
+      visualizer.add_sphere(
+        center=left_target_vis,
+        radius=self._viz_radius,
+        color=(0.0, 0.0, 1.0, 0.35),
+        label=f"step_target_left_{i}",
+      )
+
+      # Actual foot centers.
+      visualizer.add_sphere(
+        center=right_actual,
+        radius=0.35 * self._viz_radius,
+        color=(1.0, 0.4, 0.4, 0.85),
+        label=f"step_actual_right_{i}",
+      )
+      visualizer.add_sphere(
+        center=left_actual,
+        radius=0.35 * self._viz_radius,
+        color=(0.4, 0.4, 1.0, 0.85),
+        label=f"step_actual_left_{i}",
+      )
+
+      # Optional: highlight which foot is in swing.
+      if swing_now[i, 0]:
+        visualizer.add_sphere(
+          center=right_actual,
+          radius=0.6 * self._viz_radius,
+          color=(1.0, 0.0, 0.0, 0.15),
+          label=f"step_swing_right_{i}",
+        )
+      if swing_now[i, 1]:
+        visualizer.add_sphere(
+          center=left_actual,
+          radius=0.6 * self._viz_radius,
+          color=(0.0, 0.0, 1.0, 0.15),
+          label=f"step_swing_left_{i}",
+        )
 
   def _update_metrics(self) -> None:
     pass
