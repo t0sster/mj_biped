@@ -173,13 +173,21 @@ def heading_tracking(
   speed_eps: float = 1.0e-3,
 ) -> torch.Tensor:
   asset: Entity = env.scene[asset_cfg.name]
-  base_heading = asset.data.heading_w.unsqueeze(1)
+  base_quat = asset.data.root_link_quat_w
+  forward = torch.tensor([1.0, 0.0, 0.0], device=env.device).repeat(env.num_envs, 1)
+  base_forward = math_utils.quat_apply(base_quat, forward)
+  base_heading = torch.atan2(base_forward[:, 1], base_forward[:, 0]).unsqueeze(1)
+
   command = env.command_manager.get_command(command_name)
   cmd_vel = command[:, :2]
   cmd_speed = torch.norm(cmd_vel, dim=1, keepdim=True)
-  vel_heading = torch.atan2(cmd_vel[:, 1], cmd_vel[:, 0]).unsqueeze(1)
-  desired_heading = math_utils.wrap_to_pi(base_heading + vel_heading)
-  desired_heading = torch.where(cmd_speed > speed_eps, desired_heading, base_heading)
+  if command.shape[1] > 3:
+    desired_heading = command[:, 3:4]
+  else:
+    vel_heading = torch.atan2(cmd_vel[:, 1], cmd_vel[:, 0]).unsqueeze(1)
+    desired_heading = math_utils.wrap_to_pi(base_heading + vel_heading)
+    desired_heading = torch.where(cmd_speed > speed_eps, desired_heading, base_heading)
+
   err = math_utils.wrap_to_pi(base_heading - desired_heading)
   return torch.exp(-torch.square(err) / heading_sigma).squeeze(1)
 

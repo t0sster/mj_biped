@@ -23,7 +23,6 @@ def compute_xcom_step_targets_b(
   root_pos_b: torch.Tensor,
   root_lin_vel_b: torch.Tensor,
   support_foot_pos_b: torch.Tensor,
-  cmd_vel_xy_b: torch.Tensor,
   heading_b: torch.Tensor,
   step_time: torch.Tensor,
   step_width: torch.Tensor,
@@ -56,18 +55,15 @@ def compute_xcom_step_targets_b(
   eicp_x = x_f_b + vx_f / omega
   eicp_y = y_f_b + vy_f / omega
 
-  offset_x = -step_length / (torch.exp(wt) - 1.0)
-  lateral_offset = step_width / (torch.exp(wt) + 1.0)
+  offset_forward = -step_length / (torch.exp(wt) - 1.0)
+  offset_lateral = step_width / (torch.exp(wt) + 1.0)
   if left_swing is not None:
-    offset_y = torch.where(left_swing.view(-1, 1), lateral_offset, -lateral_offset)
+    offset_lateral = torch.where(left_swing.view(-1, 1), offset_lateral, -offset_lateral)
   else:
-    offset_y = -lateral_offset
+    offset_lateral = -offset_lateral
 
-  command_bias_xy_b = torch.zeros_like(cmd_vel_xy_b)
-  command_bias_xy_b[:, 0:1] = 0.5 * cmd_vel_xy_b[:, 0:1] * step_time
-  command_bias_xy_b[:, 1:2] = 1.0 * cmd_vel_xy_b[:, 1:2] * step_time
   target_b = torch.zeros(root_pos_b.shape[0], 3, device=root_pos_b.device)
-  target_b[:, 0] = (eicp_x + offset_x + command_bias_xy_b[:, 0:1]).squeeze(1)
-  target_b[:, 1] = (eicp_y + offset_y + command_bias_xy_b[:, 1:2]).squeeze(1)
+  target_b[:, 0] = (eicp_x + offset_forward).squeeze(1)
+  target_b[:, 1] = (eicp_y + offset_lateral).squeeze(1)
   target_b[:, 2] = heading_b.squeeze(1) if heading_b.dim() > 1 else heading_b
   return target_b

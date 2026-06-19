@@ -104,8 +104,12 @@ class PFootstepPlanner:
       freq = gait_command[:, 0].clamp(min=1.0e-3)
       step_time = (0.5 / freq).unsqueeze(1)
 
-    cmd_forward = cmd_vel_b[:, 0:1]
     cmd_speed = torch.norm(cmd_vel_b, dim=1, keepdim=True)
+    step_dir_b = torch.where(
+      cmd_speed > self.cfg.heading_speed_eps,
+      cmd_vel_b / torch.clamp(cmd_speed, min=1.0e-6),
+      torch.tensor([1.0, 0.0], device=self.device).view(1, 2).expand(cmd_vel_b.shape[0], -1),
+    )
     step_heading_b = torch.where(
       cmd_speed > self.cfg.heading_speed_eps,
       torch.atan2(cmd_vel_b[:, 1], cmd_vel_b[:, 0]).unsqueeze(1),
@@ -117,7 +121,7 @@ class PFootstepPlanner:
     elif self.cfg.nominal_step_length is not None:
       nominal_step_length = torch.full_like(step_time, self.cfg.nominal_step_length)
     else:
-      nominal_step_length = torch.abs(cmd_forward) * step_time
+      nominal_step_length = cmd_speed * step_time
     turn_length_boost = self.cfg.turn_length_gain * torch.abs(cmd_wz) * step_time
     step_length = torch.clamp(
       nominal_step_length + turn_length_boost,
@@ -150,27 +154,36 @@ class PFootstepPlanner:
       foot_pos_b[:, 1, :],
       foot_pos_b[:, 0, :],
     )
+    heading_dir_b = torch.stack(
+      (torch.cos(step_heading_b.squeeze(1)), torch.sin(step_heading_b.squeeze(1))),
+      dim=1,
+    )
+    speed_scale = cmd_vel_b[:, 0:1].abs() / (
+      cmd_vel_b[:, 0:1].abs() + cmd_vel_b[:, 1:2].abs() + 1.0e-6
+    )
+    delta_along = (
+      (foot_pos_b[:, 0, :2] - foot_pos_b[:, 1, :2]).mul(heading_dir_b).sum(dim=1, keepdim=True)
+    )
+    comp = self.cfg.stride_compensation_gain * speed_scale * delta_along
+    comp_limit = self.cfg.stride_compensation_max_ratio * step_length
+    comp = torch.clamp(comp, min=-comp_limit, max=comp_limit)
+    swing_sign = (swing_left.float() - swing_right.float()).unsqueeze(1)
+    cmd_speed_along = cmd_speed
+    act_speed_along = torch.sum(root_vel_b[:, :2] * step_dir_b, dim=1, keepdim=True)
+    speed_error = cmd_speed_along - act_speed_along
+    speed_feedback = self.cfg.stride_compensation_gain * speed_error * step_time
+    speed_feedback = torch.clamp(speed_feedback, min=-comp_limit, max=comp_limit)
+    step_length_eff = torch.clamp(step_length + speed_feedback + swing_sign * comp, min=0.0)
     target_b = compute_xcom_step_targets_b(
       root_pos_b,
       root_vel_b,
       support_pos_b,
-      cmd_vel_b,
       step_heading_b,
       step_time,
       step_width,
-      step_length,
+      step_length_eff,
       swing_left,
     )
-    velocity_error_b = cmd_vel_b - root_vel_b[:, :2]
-    velocity_correction_b = self.cfg.stride_compensation_gain * velocity_error_b * step_time
-    forward_limit = self.cfg.stride_compensation_max_ratio * torch.clamp(step_length, min=0.05)
-    lateral_limit = self.cfg.stride_compensation_max_ratio * torch.clamp(step_width, min=0.05)
-    velocity_correction_b = torch.clamp(
-      velocity_correction_b,
-      min=torch.cat((-forward_limit, -lateral_limit), dim=1),
-      max=torch.cat((forward_limit, lateral_limit), dim=1),
-    )
-    target_b[:, :2] = target_b[:, :2] + velocity_correction_b
 
     target_vec_b = torch.zeros_like(target_b)
     target_vec_b[:, :2] = target_b[:, :2]
