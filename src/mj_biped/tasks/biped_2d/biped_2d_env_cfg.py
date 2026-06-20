@@ -1,5 +1,3 @@
-"""Biped 2D locomotion environment configuration."""
-
 from __future__ import annotations
 
 import math
@@ -12,7 +10,7 @@ from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp as env_mdp
 from mjlab.envs.mdp.actions import JointPositionActionCfg
 from mjlab.managers.action_manager import ActionTermCfg
-from mjlab.managers.event_manager import EventTermCfg
+from mjlab.managers.command_manager import CommandTermCfg
 from mjlab.managers.observation_manager import (
   ObservationGroupCfg,
   ObservationTermCfg,
@@ -61,9 +59,22 @@ _ACTUATED_JOINT_NAMES = (
 )
 
 _ROBOT_CFG = SceneEntityCfg("biped_2d", joint_names=_BIPED_JOINT_NAMES)
+_BASE_CONTACT_CFG = SceneEntityCfg(
+  "biped_2d",
+  body_names=("pelvis", "head"),
+)
+_FEET_CONTACT_CFG = SceneEntityCfg(
+  "biped_2d",
+  body_names=("left_ankle_pitch_link", "right_ankle_pitch_link"),
+  preserve_order=True,
+)
+_TERRAIN_CFG = SceneEntityCfg("terrain", geom_names=("terrain",))
+
+_TORQUE_ACTUATOR_NAMES = tuple(f"{name}_pd_.*" for name in _ACTUATED_JOINT_NAMES)
+
 _ROBOT_ACTUATOR_CFG = SceneEntityCfg(
   "biped_2d",
-  actuator_names=_ACTUATED_JOINT_NAMES,
+  actuator_names=_TORQUE_ACTUATOR_NAMES,
 )
 
 _PLAY_NUM_ENVS = 1
@@ -76,32 +87,26 @@ def _get_spec() -> mujoco.MjSpec:
 _BIPED_2D_ARTICULATION = EntityArticulationInfoCfg(
   actuators=(
     BuiltinPdActuatorCfg(
-      target_names_expr=("JL0_hip_pitch", "JR0_hip_pitch"),
-      stiffness=60.0,
+      target_names_expr=(
+        "JL0_hip_pitch", 
+        "JR0_hip_pitch", 
+        "JL1_hip_roll", 
+        "JR1_hip_roll",
+        "JL3_knee_pitch", 
+        "JR3_knee_pitch"
+      ),
+      stiffness=60,
       damping=1.5,
       effort_limit=20.0,
     ),
     BuiltinPdActuatorCfg(
-      target_names_expr=("JL1_hip_roll", "JR1_hip_roll"),
-      stiffness=60.0,
-      damping=1.5,
-      effort_limit=20.0,
-    ),
-    BuiltinPdActuatorCfg(
-      target_names_expr=("JL2_thigh_yaw", "JR2_thigh_yaw"),
-      stiffness=50.0,
-      damping=1.2,
-      effort_limit=20.0,
-    ),
-    BuiltinPdActuatorCfg(
-      target_names_expr=("JL3_knee_pitch", "JR3_knee_pitch"),
-      stiffness=60.0,
-      damping=1.5,
-      effort_limit=20.0,
-    ),
-    BuiltinPdActuatorCfg(
-      target_names_expr=("JL4_ankle_pitch", "JR4_ankle_pitch"),
-      stiffness=50.0,
+      target_names_expr=(
+        "JL2_thigh_yaw", 
+        "JR2_thigh_yaw", 
+        "JL4_ankle_pitch", 
+        "JR4_ankle_pitch"
+      ),
+      stiffness=50,
       damping=1.2,
       effort_limit=20.0,
     ),
@@ -110,13 +115,9 @@ _BIPED_2D_ARTICULATION = EntityArticulationInfoCfg(
 )
 
 _BIPED_INIT = EntityCfg.InitialStateCfg(
-  pos=(0.0, 0.0, 0.0),
+  pos=(0.0, 0.0, 0.55),
   rot=(1.0, 0.0, 0.0, 0.0),
   joint_pos={
-    "root_x": 0.0,
-    "root_z": 0.0,
-    "root_pitch": 0.0,
-
     "JL0_hip_pitch": 0.7,
     "JL1_hip_roll": -0.09,
     "JL2_thigh_yaw": -0.26,
@@ -138,18 +139,17 @@ def _get_biped_2d_cfg() -> EntityCfg:
     spec_fn=_get_spec,
     articulation=_BIPED_2D_ARTICULATION,
     init_state=_BIPED_INIT,
-    sort_actuators=True,
   )
 
 
 def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
   actor_terms = {
     "base_lin_vel": ObservationTermCfg(
-      func=env_mdp.base_lin_vel,
+      func=mdp.base_lin_vel_2d,
       params={"asset_cfg": _ROBOT_CFG},
     ),
     "base_ang_vel": ObservationTermCfg(
-      func=env_mdp.base_ang_vel,
+      func=mdp.base_ang_vel_2d,
       params={"asset_cfg": _ROBOT_CFG},
     ),
     "joint_pos": ObservationTermCfg(
@@ -159,6 +159,10 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     "joint_vel": ObservationTermCfg(
       func=env_mdp.joint_vel_rel,
       params={"asset_cfg": _ROBOT_CFG},
+    ),
+    "gait": ObservationTermCfg(
+      func=env_mdp.generated_commands,
+      params={"command_name": "gait"},
     ),
   }
 
@@ -177,59 +181,54 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     ),
   }
 
-  events = {
-    "reset_joints": EventTermCfg(
-      func=env_mdp.reset_joints_by_offset,
-      mode="reset",
-      params={
-        "position_range": (-0.05, 0.05),
-        "velocity_range": (-0.1, 0.1),
-        "asset_cfg": _ROBOT_CFG,
-      },
+  commands: dict[str, CommandTermCfg] = {
+    "gait": mdp.UniformGaitCommandCfg(
+      resampling_time_range=(1.0e6, 1.0e6),
+      ranges=mdp.UniformGaitCommandCfg.Ranges(
+        frequencies=(0.5, 1.5),
+        duty_cycle=(0.5, 0.5),
+      ),
     ),
   }
 
   rewards = {
-    "alive": RewardTermCfg(
-      func=mdp.alive,
-      weight=0.25,
-    ),
     "forward_velocity": RewardTermCfg(
       func=mdp.forward_velocity,
-      weight=1.5,
+      weight=1.0,
       params={"asset_cfg": _ROBOT_CFG},
     ),
-    "upright": RewardTermCfg(
-      func=mdp.upright,
-      weight=1.0,
-      params={"asset_cfg": _ROBOT_CFG, "sigma": math.sqrt(0.35)},
-    ),
-    "lateral_centering": RewardTermCfg(
-      func=mdp.lateral_centering,
-      weight=1.0,
-      params={"asset_cfg": _ROBOT_CFG, "sigma": math.sqrt(0.15)},
-    ),
     "joint_torque": RewardTermCfg(
-      func=mdp.joint_torque,
+      func=env_mdp.joint_torques_l2,
       weight=-1.0e-3,
-      params={"actuator_cfg": _ROBOT_ACTUATOR_CFG, "sigma": math.sqrt(10.0)},
+      params={"asset_cfg": _ROBOT_ACTUATOR_CFG},
     ),
     "joint_velocity": RewardTermCfg(
-      func=mdp.joint_velocity,
+      func=env_mdp.joint_vel_l2,
       weight=-1.0e-4,
-      params={"asset_cfg": _ROBOT_CFG, "sigma": math.sqrt(10.0)},
+      params={"asset_cfg": _ROBOT_CFG},
     ),
+    "contact_schedule": RewardTermCfg(
+      func=mdp.contact_schedule,
+      weight=1.0,
+      params={
+        "asset_cfg": _FEET_CONTACT_CFG,
+        "terrain_cfg": _TERRAIN_CFG,
+        "command_name": "gait",
+        "sigma": 0.15,
+      },
+    ),
+    "action_acc": RewardTermCfg(func=env_mdp.action_acc_l2, weight=-1.0e-3),
   }
 
   terminations = {
     "time_out": TerminationTermCfg(func=env_mdp.time_out, time_out=True),
     "bad_orientation": TerminationTermCfg(
-      func=env_mdp.bad_orientation,
-      params={"limit_angle": 1.25, "asset_cfg": _ROBOT_CFG},
+      func=mdp.bad_pitch,
+      params={"limit_angle": math.radians(70.0), "asset_cfg": _ROBOT_CFG},
     ),
-    "root_height_below_minimum": TerminationTermCfg(
-      func=env_mdp.root_height_below_minimum,
-      params={"minimum_height": -0.2, "asset_cfg": _ROBOT_CFG},
+    "base_contact_with_ground": TerminationTermCfg(
+      func=mdp.base_contact_with_ground,
+      params={"asset_cfg": _BASE_CONTACT_CFG, "terrain_cfg": _TERRAIN_CFG},
     ),
   }
 
@@ -242,7 +241,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     ),
     observations=observations,
     actions=actions,
-    events=events,
+    commands=commands,
     rewards=rewards,
     terminations=terminations,
     viewer=ViewerConfig(
