@@ -1,0 +1,46 @@
+"""Runner configuration for the biped_2d task."""
+
+from __future__ import annotations
+
+from mjlab.rl import RslRlModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
+
+
+def biped_2d_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
+  return RslRlOnPolicyRunnerCfg(
+    actor=RslRlModelCfg(
+      hidden_dims=(256, 256, 128),
+      activation="elu",
+      obs_normalization=True,
+      distribution_cfg={
+        "class_name": "GaussianDistribution",
+        "init_std": 1.0,
+        "std_type": "scalar",
+      },
+    ),
+    critic=RslRlModelCfg(
+      hidden_dims=(512, 256, 128),
+      activation="elu",
+      obs_normalization=True,
+    ),
+    algorithm=RslRlPpoAlgorithmCfg(
+      value_loss_coef=1.0,
+      use_clipped_value_loss=True,
+      clip_param=0.2,
+      entropy_coef=0.005,
+      num_learning_epochs=5,
+      num_mini_batches=8,
+      learning_rate=5.0e-4,
+      schedule="adaptive",
+      gamma=0.99,
+      lam=0.95,
+      desired_kl=0.01,
+      max_grad_norm=1.0,
+    ),
+    experiment_name="biped_2d",
+    save_interval=100,
+    num_steps_per_env=24,
+    max_iterations=5001,
+    logger="tensorboard",
+    upload_model=False,
+  )
+
