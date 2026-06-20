@@ -1,0 +1,407 @@
+<?xml version="1.0" encoding="utf-8"?>
+<robot name="BipeD-prims">
+
+  <!-- ================= ЦВЕТА И МАТЕРИАЛЫ ================= -->
+  <material name="pelvis_color"><color rgba="0.1 0.5 0.5 1.0"/></material>
+  <material name="waist_color"><color rgba="0.8 0.8 0.8 1.0"/></material>
+  <material name="head_color"><color rgba="1.0 0.1 0.1 1.0"/></material>
+  <material name="eye_color"><color rgba="0.05 0.05 0.05 1.0"/></material>
+  <material name="motor_J8006_color"><color rgba="0.1 0.7 0.3 1.0"/></material>
+  <material name="motor_J6006_color"><color rgba="0.3 0.7 0.3 1.0"/></material>
+  <material name="foot_color"><color rgba="0.2 0.3 0.7 1.0"/></material>
+
+  <!-- ================= ТОРС И ГОЛОВА ================= -->
+
+  <link name="pelvis">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="2.0"/>
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="1.57 0 0"/>
+      <geometry><cylinder radius="0.05" length="0.15"/></geometry>
+      <material name="pelvis_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.57 0 0"/>
+      <geometry><cylinder radius="0.05" length="0.15"/></geometry>
+    </collision>
+  </link>
+
+  <link name="waist">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.2"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.03" length="0.1"/></geometry>
+      <material name="waist_color"/>
+    </visual>
+  </link>
+
+  <link name="head">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.55"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <!-- Основная сфера головы -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="0.1"/></geometry>
+      <material name="head_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="0.1"/></geometry>
+    </collision>
+    <!-- Нижний цилиндр шеи/головы -->
+    <visual>
+      <origin xyz="0 0 -0.03" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.1" length="0.06"/></geometry>
+      <material name="head_color"/>
+    </visual>
+    <!-- Глаз -->
+    <visual>
+      <origin xyz="0.075 0 0.03" rpy="0 0 0"/>
+      <geometry><sphere radius="0.03"/></geometry>
+      <material name="eye_color"/>
+    </visual>
+  </link>
+
+  <joint name="J_waist" type="fixed">
+    <origin xyz="0 0 0.05" rpy="0 0 0"/>
+    <parent link="pelvis"/>
+    <child link="waist"/>
+  </joint>
+
+  <joint name="J_head" type="fixed">
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+    <parent link="waist"/>
+    <child link="head"/>
+  </joint>
+
+
+  <!-- ================= ЛЕВАЯ НОГА (LEFT LEG) ================= -->
+
+  <link name="left_hip_pitch_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="4.189 0 0"/>
+      <mass value="0.55"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.0007" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="4.189 0 0"/>
+      <geometry><cylinder radius="0.048" length="0.04"/></geometry>
+      <material name="motor_J8006_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="4.189 0 0"/>
+      <geometry><cylinder radius="0.048" length="0.04"/></geometry>
+    </collision>
+  </link>
+
+  <link name="left_hip_roll_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 1.57 0"/>
+      <mass value="0.55"/>
+      <inertia ixx="0.0007" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <!-- Мотор -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 1.57 0"/>
+      <geometry><cylinder radius="0.048" length="0.04"/></geometry>
+      <material name="motor_J8006_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 1.57 0"/>
+      <geometry><cylinder radius="0.048" length="0.04"/></geometry>
+    </collision>
+    <!-- Соединительная коробка -->
+    <visual>
+      <origin xyz="0 0 -0.05" rpy="0 0 0"/>
+      <geometry><box size="0.02 0.06 0.1"/></geometry>
+      <material name="pelvis_color"/>
+    </visual>
+  </link>
+
+  <link name="left_thigh_yaw_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="3.14 0 0"/>
+      <mass value="0.55"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.0007"/>
+    </inertial>
+    <!-- Мотор -->
+    <visual>
+      <origin xyz="0 0 0" rpy="3.14 0 0"/>
+      <geometry><cylinder radius="0.038" length="0.036"/></geometry>
+      <material name="motor_J6006_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="3.14 0 0"/>
+      <geometry><cylinder radius="0.038" length="0.036"/></geometry>
+    </collision>
+    <!-- Соединительная коробка -->
+    <visual>
+      <origin xyz="0 0 -0.04" rpy="0 0 0"/>
+      <geometry><box size="0.06 0.02 0.08"/></geometry>
+      <material name="pelvis_color"/>
+    </visual>
+  </link>
+
+  <link name="left_knee_pitch_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="-1.57 0 0"/>
+      <mass value="0.55"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.0007" iyz="0" izz="0.001"/>
+    </inertial>
+    <!-- Мотор -->
+    <visual>
+      <origin xyz="0 0 0" rpy="-1.57 0 0"/>
+      <geometry><cylinder radius="0.048" length="0.04"/></geometry>
+      <material name="motor_J8006_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="-1.57 0 0"/>
+      <geometry><cylinder radius="0.048" length="0.04"/></geometry>
+    </collision>
+    <!-- Кость голени -->
+    <visual>
+      <origin xyz="0 0 -0.1" rpy="0 0 0"/>
+      <geometry><box size="0.06 0.02 0.2"/></geometry>
+      <material name="pelvis_color"/>
+    </visual>
+  </link>
+
+  <link name="left_ankle_pitch_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="1.57 0 0"/>
+      <mass value="0.55"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.0007" iyz="0" izz="0.001"/>
+    </inertial>
+    <!-- Мотор голеностопа -->
+    <visual>
+      <origin xyz="0 0 0" rpy="1.57 0 0"/>
+      <geometry><cylinder radius="0.038" length="0.036"/></geometry>
+      <material name="motor_J6006_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.57 0 0"/>
+      <geometry><cylinder radius="0.038" length="0.036"/></geometry>
+    </collision>
+    <!-- Капсула стопы -->
+    <visual>
+      <origin xyz="0.015 0 -0.055" rpy="0 1.57 0"/>
+      <geometry><cylinder radius="0.02" length="0.12"/></geometry>
+      <material name="foot_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0.015 0 -0.055" rpy="0 1.57 0"/>
+      <geometry><cylinder radius="0.02" length="0.12"/></geometry>
+    </collision>
+  </link>
+
+  <!-- Суставы левой ноги -->
+  <joint name="JL0_hip_pitch" type="revolute">
+    <origin xyz="0 0.125 0" rpy="0 0 0"/>
+    <parent link="pelvis"/>
+    <child link="left_hip_pitch_link"/>
+    <axis xyz="0 0.8660 -0.5"/>
+    <limit lower="-1.57" upper="1.57" effort="40" velocity="10"/>
+  </joint>
+
+  <joint name="JL1_hip_roll" type="revolute">
+    <origin xyz="0 0.05 -0.07" rpy="0 0 0"/>
+    <parent link="left_hip_pitch_link"/>
+    <child link="left_hip_roll_link"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.785" upper="1.57" effort="40" velocity="10"/>
+  </joint>
+
+  <joint name="JL2_thigh_yaw" type="revolute">
+    <origin xyz="0 0 -0.1" rpy="0 0 0"/>
+    <parent link="left_hip_roll_link"/>
+    <child link="left_thigh_yaw_link"/>
+    <axis xyz="0 0 -1"/>
+    <limit lower="-1.57" upper="1.57" effort="20" velocity="10"/>
+  </joint>
+
+  <joint name="JL3_knee_pitch" type="revolute">
+    <origin xyz="0 0.02 -0.08" rpy="0 0 0"/>
+    <parent link="left_thigh_yaw_link"/>
+    <child link="left_knee_pitch_link"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.57" upper="1.57" effort="40" velocity="10"/>
+  </joint>
+
+  <joint name="JL4_ankle_pitch" type="revolute">
+    <origin xyz="0 0 -0.22" rpy="0 0 0"/>
+    <parent link="left_knee_pitch_link"/>
+    <child link="left_ankle_pitch_link"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-0.785" upper="0.785" effort="20" velocity="10"/>
+  </joint>
+
+
+  <!-- ================= ПРАВАЯ НОГА (RIGHT LEG) ================= -->
+ <link name="right_hip_pitch_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="-4.189 0 0"/>
+      <mass value="0.55"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.0007" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="-4.189 0 0"/>
+      <geometry><cylinder radius="0.048" length="0.04"/></geometry>
+      <material name="motor_J8006_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="-4.189 0 0"/>
+      <geometry><cylinder radius="0.048" length="0.04"/></geometry>
+    </collision>
+  </link>
+
+  <link name="right_hip_roll_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 1.57 0"/>
+      <mass value="0.55"/>
+      <inertia ixx="0.0007" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <!-- Мотор -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 1.57 0"/>
+      <geometry><cylinder radius="0.048" length="0.04"/></geometry>
+      <material name="motor_J8006_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 1.57 0"/>
+      <geometry><cylinder radius="0.048" length="0.04"/></geometry>
+    </collision>
+    <!-- Соединительная коробка -->
+    <visual>
+      <origin xyz="0 0 -0.05" rpy="0 0 0"/>
+      <geometry><box size="0.02 0.06 0.1"/></geometry>
+      <material name="pelvis_color"/>
+    </visual>
+  </link>
+
+  <link name="right_thigh_yaw_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="3.14 0 0"/>
+      <mass value="0.55"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.0007"/>
+    </inertial>
+    <!-- Мотор -->
+    <visual>
+      <origin xyz="0 0 0" rpy="3.14 0 0"/>
+      <geometry><cylinder radius="0.038" length="0.036"/></geometry>
+      <material name="motor_J6006_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="3.14 0 0"/>
+      <geometry><cylinder radius="0.038" length="0.036"/></geometry>
+    </collision>
+    <!-- Соединительная коробка -->
+    <visual>
+      <origin xyz="0 0 -0.04" rpy="0 0 0"/>
+      <geometry><box size="0.06 0.02 0.08"/></geometry>
+      <material name="pelvis_color"/>
+    </visual>
+  </link>
+
+  <link name="right_knee_pitch_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="1.57 0 0"/> <!-- Отражён rpy симметрично левому -1.57 -->
+      <mass value="0.55"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.0007" iyz="0" izz="0.001"/>
+    </inertial>
+    <!-- Мотор -->
+    <visual>
+      <origin xyz="0 0 0" rpy="1.57 0 0"/> <!-- Инвертирован знак наклона геометрии -->
+      <geometry><cylinder radius="0.048" length="0.04"/></geometry>
+      <material name="motor_J8006_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.57 0 0"/>
+      <geometry><cylinder radius="0.048" length="0.04"/></geometry>
+    </collision>
+    <!-- Кость голени -->
+    <visual>
+      <origin xyz="0 0 -0.1" rpy="0 0 0"/>
+      <geometry><box size="0.06 0.02 0.2"/></geometry>
+      <material name="pelvis_color"/>
+    </visual>
+  </link>
+
+  <link name="right_ankle_pitch_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="-1.57 0 0"/> <!-- Отражён rpy симметрично левому 1.57 -->
+      <mass value="0.55"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.0007" iyz="0" izz="0.001"/>
+    </inertial>
+    <!-- Мотор голеностопа -->
+    <visual>
+      <origin xyz="0 0 0" rpy="-1.57 0 0"/> <!-- Инвертирован знак наклона геометрии -->
+      <geometry><cylinder radius="0.038" length="0.036"/></geometry>
+      <material name="motor_J6006_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="-1.57 0 0"/>
+      <geometry><cylinder radius="0.038" length="0.036"/></geometry>
+    </collision>
+    <!-- Капсула стопы -->
+    <visual>
+      <origin xyz="0.015 0 -0.055" rpy="0 1.57 0"/>
+      <geometry><cylinder radius="0.02" length="0.12"/></geometry>
+      <material name="foot_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0.015 0 -0.055" rpy="0 1.57 0"/>
+      <geometry><cylinder radius="0.02" length="0.12"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ================= СУСТАВЫ ПРАВОЙ НОГИ ================= -->
+
+  <joint name="JR0_hip_pitch" type="revolute">
+    <origin xyz="0 -0.125 0" rpy="0 0 0"/> <!-- Инвертировано смещение по Y -->
+    <parent link="pelvis"/>
+    <child link="right_hip_pitch_link"/>
+    <axis xyz="0 -0.8660 -0.5"/> <!-- Инвертирована Y-компонента оси вращения -->
+    <limit lower="-1.57" upper="1.57" effort="40" velocity="10"/>
+  </joint>
+
+  <joint name="JR1_hip_roll" type="revolute">
+    <origin xyz="0 -0.05 -0.07" rpy="0 0 0"/> <!-- Инвертировано смещение по Y -->
+    <parent link="right_hip_pitch_link"/>
+    <child link="right_hip_roll_link"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.785" upper="1.57" effort="40" velocity="10"/>
+  </joint>
+
+  <joint name="JR2_thigh_yaw" type="revolute">
+    <origin xyz="0 0 -0.1" rpy="0 0 0"/>
+    <parent link="right_hip_roll_link"/>
+    <child link="right_thigh_yaw_link"/>
+    <axis xyz="0 0 -1"/>
+    <limit lower="-1.57" upper="1.57" effort="20" velocity="10"/>
+  </joint>
+
+  <joint name="JR3_knee_pitch" type="revolute">
+    <origin xyz="0 -0.02 -0.08" rpy="0 0 0"/> <!-- Инвертировано смещение по Y -->
+    <parent link="right_thigh_yaw_link"/>
+    <child link="right_knee_pitch_link"/>
+    <axis xyz="0 -1 0"/> <!-- Инвертировано направление вращения колена Y -->
+    <limit lower="-1.57" upper="1.57" effort="40" velocity="10"/>
+  </joint>
+
+  <joint name="JR4_ankle_pitch" type="revolute">
+    <origin xyz="0 0 -0.22" rpy="0 0 0"/> <!-- Смещение в XML исходно по Y = 0 -->
+    <parent link="right_knee_pitch_link"/>
+    <child link="right_ankle_pitch_link"/>
+    <axis xyz="0 1 0"/> <!-- Инвертировано направление вращения голеностопа Y -->
+    <limit lower="-0.785" upper="0.785" effort="20" velocity="10"/>
+  </joint>
