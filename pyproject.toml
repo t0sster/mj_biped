@@ -14,6 +14,7 @@ dependencies = [
 
 [project.scripts]
 mj-biped = "mj_biped:main"
+mj-biped-export-policy = "mj_biped.controller.policy_exporter:main"
 
 [project.entry-points."mjlab.tasks"]
 mj-biped = "mj_biped.tasks:biped_2d"
