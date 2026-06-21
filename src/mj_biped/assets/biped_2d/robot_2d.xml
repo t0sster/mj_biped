@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mujoco model="BipeD-prims-2d">
+  <compiler angle="radian" balanceinertia="true" discardvisual="false" />
+
+  <option timestep="0.002" solver="Newton" jacobian="sparse">
+    <flag contact="enable"/>
+  </option>
+
+  <default>
+    <geom solref="0.002 1" solimp="0.9 0.95 0.001 0.5 2"/>
+    <joint damping="0.1" armature="0.01" />
+  </default>
+
+  <default>
+    <default class="leg_joint">
+      <joint type="hinge" axis="0 1 0"/>
+    </default>
+
+    <default class="thigh">
+      <geom type="capsule" size="0.04" rgba="0.2 0.5 0.8 1" density="900"/>
+    </default>
+    <default class="shin">
+      <geom type="capsule" size="0.035" rgba="0.2 0.5 0.8 1" density="900"/>
+    </default>
+    <default class="foot">
+      <geom type="sphere" size="0.03" rgba="0.9 0.3 0.2 1" density="900"/>
+    </default>
+  </default>
+
+  <worldbody>
+
+    <body name="base" pos="0 0 1.0">
+      <joint name="root_x" type="slide" axis="1 0 0" damping="0" armature="0"/>
+      <joint name="root_z" type="slide" axis="0 0 1" damping="0" armature="0"/>
+      <joint name="root_pitch" type="hinge" axis="0 1 0" damping="0" armature="0"/>
+
+      <geom name="torso" type="box" size="0.15 0.10 0.18" rgba="0.3 0.3 0.35 1" mass="0.35 "/>
+      <site name="imu" pos="0 0 0" size="0.02" rgba="1 1 0 1"/>
+
+      <body name="thigh_right" pos="0 -0.1 -0.22">
+        <joint name="hip_right" class="leg_joint" range="-2.0 2.0"/>
+        <geom name="thigh_right" class="thigh" fromto="0 0 0 0 0 -0.4"/>
+
+        <body name="shin_right" pos="0 0 -0.4">
+          <joint name="knee_right" class="leg_joint" range="-2.5 0.0"/>
+          <geom name="shin_right" class="shin" fromto="0 0 0 0 0 -0.4"/>
+
+          <body name="foot_right" pos="0 0 -0.4">
+            <geom name="foot_right" class="foot"/>
+            <site name="foot_right_site" pos="0 0 0" size="0.031" rgba="1 1 0 0.3"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="thigh_left" pos="0 0.1 -0.22">
+        <joint name="hip_left" class="leg_joint" range="-2.0 2.0"/>
+        <geom name="thigh_left" class="thigh" fromto="0 0 0 0 0 -0.4"/>
+
+        <body name="shin_left" pos="0 0 -0.4">
+          <joint name="knee_left" class="leg_joint" range="-2.5 0.0"/>
+          <geom name="shin_left" class="shin" fromto="0 0 0 0 0 -0.4"/>
+
+          <body name="foot_left" pos="0 0 -0.4">
+            <geom name="foot_left" class="foot"/>
+            <site name="foot_left_site" pos="0 0 0" size="0.031" rgba="1 1 0 0.3"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+</mujoco>
