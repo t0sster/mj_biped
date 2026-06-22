@@ -1,0 +1,42 @@
+<mujoco model="sensors_actuators">
+  
+  <!--Актуаторы и датчики робота -->
+
+  <actuator>
+    <!-- Моторы -->
+    <motor name="hip_right"  joint="hip_right"  gear="40" ctrlrange="-1 1"/>
+    <motor name="knee_right" joint="knee_right" gear="40" ctrlrange="-1 1"/>
+    <motor name="hip_left"   joint="hip_left"   gear="40" ctrlrange="-1 1"/>
+    <motor name="knee_left"  joint="knee_left"  gear="40" ctrlrange="-1 1"/>
+  </actuator>
+
+  <sensor>
+    <!-- Положения и скорости управляемых шарниров -->
+    <jointpos name="hip_right_pos"  joint="hip_right"/>
+    <jointpos name="knee_right_pos" joint="knee_right"/>
+    <jointpos name="hip_left_pos"   joint="hip_left"/>
+    <jointpos name="knee_left_pos"  joint="knee_left"/>
+
+    <jointvel name="hip_right_vel"  joint="hip_right"/>
+    <jointvel name="knee_right_vel" joint="knee_right"/>
+    <jointvel name="hip_left_vel"   joint="hip_left"/>
+    <jointvel name="knee_left_vel"  joint="knee_left"/>
+
+    <!-- Моменты, развиваемые актуаторами -->
+    <actuatorfrc name="hip_right_frc"  actuator="hip_right"/>
+    <actuatorfrc name="knee_right_frc" actuator="knee_right"/>
+    <actuatorfrc name="hip_left_frc"   actuator="hip_left"/>
+    <actuatorfrc name="knee_left_frc"  actuator="knee_left"/>
+
+    <!-- IMU базы -->
+    <framepos     name="base_pos"   objtype="site" objname="imu"/>
+    <framequat    name="base_quat"  objtype="site" objname="imu"/>
+    <velocimeter  name="base_linvel" site="imu"/>
+    <gyro         name="base_gyro"   site="imu"/>
+    <accelerometer name="base_acc"   site="imu"/>
+
+    <!-- Контакт стоп с поверхностью -->
+    <touch name="foot_right_touch" site="foot_right_site"/>
+    <touch name="foot_left_touch"  site="foot_left_site"/>
+  </sensor>
+</mujoco>
