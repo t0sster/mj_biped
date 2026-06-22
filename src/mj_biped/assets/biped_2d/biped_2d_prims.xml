@@ -1,15 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
 <mujoco model="BipeD-prims-2d">
-  <compiler angle="radian" balanceinertia="true" discardvisual="false" />
-
-  <option timestep="0.002" solver="Newton" jacobian="sparse">
-    <flag contact="enable"/>
-  </option>
-
-  <default>
-    <geom solref="0.002 1" solimp="0.9 0.95 0.001 0.5 2"/>
-    <joint damping="0.1" armature="0.01" />
-  </default>
+  <compiler angle="radian" meshdir="meshes" autolimits="true"/>
 
   <default>
     <default class="BD-prims">
@@ -52,7 +42,7 @@
     <geom name="floor" pos="0 0 -0.6" size="0 0 0.05" type="plane" material="grid" condim="3" friction="0.95 0.005 0.0001"/>
 
     <body name="pelvis" pos="0 0 0" childclass="BD-prims">
-      <joint name="root_x" type="slide" axis="1 0 0" range="-50 1000"/>
+      <joint name="root_x" type="slide" axis="1 0 0" range="-50 50"/>
       <joint name="root_z" type="slide" axis="0 0 1" range="-2 2"/>
       <joint name="root_pitch" type="hinge" axis="0 1 0" range="-1.57 1.57"/>
 
