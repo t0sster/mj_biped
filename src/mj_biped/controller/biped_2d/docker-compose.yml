@@ -1,0 +1,37 @@
+services:
+  inference:
+    build: ./inference
+    image: biped2d-inference
+    network_mode: host
+    ipc: host  
+    environment:
+      - ROS_DOMAIN_ID=5
+    volumes:
+      - ../..:/ws
+    command: >
+      bash -lc "source /opt/ros/jazzy/setup.bash &&
+                python3 /ws/controller/biped_2d/inference/inference_node.py"
+
+  simulation:
+    build: ./simulation
+    image: biped2d-simulation
+    network_mode: host
+    ipc: host 
+    environment:
+      - ROS_DOMAIN_ID=5
+      - DISPLAY=${DISPLAY:-:0}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    volumes:
+      - ../..:/ws
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: >
+      bash -lc "source /opt/ros/jazzy/setup.bash &&
+                python3 /ws/controller/biped_2d/simulation/simulation_node.py"
