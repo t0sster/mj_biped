@@ -1,3 +1,5 @@
+"""Runner configuration for the biped_2d task."""
+
 from __future__ import annotations
 
 from mjlab.rl import RslRlModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
@@ -41,3 +43,4 @@ def biped_2d_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     logger="tensorboard",
     upload_model=False,
   )
+
