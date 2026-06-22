@@ -207,18 +207,18 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       resampling_time_range=(5.0, 5.0),
       debug_vis=True,
       ranges=UniformVelocityCommandCfg.Ranges(
-        lin_vel_x=(-0.2, 0.3),
-        lin_vel_y=(-0.15, 0.15),
+        lin_vel_x=(-0.1, 0.3),
+        lin_vel_y=(-0.1, 0.1),
         ang_vel_z=(-0.5, 0.5),
         heading=(-math.pi / 4, math.pi / 4),
       ),
     ),
     "gait_command": mdp.UniformGaitCommandCfg(
-      resampling_time_range=(5.0, 5.0),
+      resampling_time_range=(1e6, 1e6),
       ranges=mdp.UniformGaitCommandCfg.Ranges(
-        frequencies=(1.0, 2.0),
-        offsets=(0.45, 0.55),
-        durations=(0.45, 0.55),
+        frequencies=(1.5, 1.5),
+        offsets=(0.50, 0.50),
+        durations=(0.50, 0.50),
       ),
     ),
     "lip_step_command": mdp.LipStepCommandCfg(
@@ -471,13 +471,13 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
   if play:
     cfg.commands["base_velocity"].ranges = UniformVelocityCommandCfg.Ranges(
-      lin_vel_x=(-0.2, 0.4),
-      lin_vel_y=(-0.15, 0.15),
-      ang_vel_z=(-0.1, 0.1),
+      lin_vel_x=(-0.1, 0.3),
+      lin_vel_y=(-0.1, 0.1),
+      ang_vel_z=(-0.5, 0.5),
       heading=None,
     )
     cfg.commands["base_velocity"].heading_command = False
-    cfg.commands["base_velocity"].rel_heading_envs = 0.0
+    cfg.commands["base_velocity"].rel_heading_envs = 1.0
     cfg.commands["base_velocity"].rel_standing_envs = 0.0
     cfg.commands["lip_step_command"].nominal_step_width = 0.20
     cfg.commands["lip_step_command"].ranges = mdp.LipStepCommandCfg.Ranges(
@@ -527,7 +527,7 @@ def bd_lip_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     experiment_name="bd_lip",
     save_interval=500,
     num_steps_per_env=24,
-    max_iterations=5001,
+    max_iterations=1501,
     logger="tensorboard",
     upload_model=False,
   )

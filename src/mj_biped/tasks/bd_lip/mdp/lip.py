@@ -19,29 +19,30 @@ def gait_phase_from_command(
   return right_phase, left_phase, duration
 
 
-def compute_xcom_step_targets_b(
-  root_pos_b: torch.Tensor,
-  root_lin_vel_b: torch.Tensor,
-  support_foot_pos_b: torch.Tensor,
-  heading_b: torch.Tensor,
+def compute_xcom_step_targets_w(
+  com_pos_w: torch.Tensor,
+  lin_vel_w: torch.Tensor,
+  support_foot_pos_w: torch.Tensor,
+  heading_w: torch.Tensor,
   step_time: torch.Tensor,
   step_width: torch.Tensor,
   step_length: torch.Tensor,
+  height: torch.Tensor,
   left_swing: torch.Tensor | None = None,
   gravity: float = 9.81,
 ) -> torch.Tensor:
-  """Compute an XCoM step target in the robot yaw-base frame.
+  """Compute an XCoM step target in world frame.
 
-  The formula is intentionally the same as the IsaacLab planner, but the frame
-  naming is explicit: all XY quantities are in the yaw-aligned base frame.
+  This mirrors the IsaacGym BD planner: the pendulum state is the mass-weighted
+  CoM, support foot coordinates stay in world frame, and omega is computed from
+  the commanded pendulum height instead of the instantaneous root height.
   """
-  z = root_pos_b[:, 2:3].clamp(min=0.05)
-  omega = torch.sqrt(gravity / z)
+  omega = torch.sqrt(gravity / height.clamp(min=0.05))
 
-  x0 = root_pos_b[:, 0:1] - support_foot_pos_b[:, 0:1]
-  y0 = root_pos_b[:, 1:2] - support_foot_pos_b[:, 1:2]
-  vx0 = root_lin_vel_b[:, 0:1]
-  vy0 = root_lin_vel_b[:, 1:2]
+  x0 = com_pos_w[:, 0:1] - support_foot_pos_w[:, 0:1]
+  y0 = com_pos_w[:, 1:2] - support_foot_pos_w[:, 1:2]
+  vx0 = lin_vel_w[:, 0:1]
+  vy0 = lin_vel_w[:, 1:2]
 
   wt = step_time * omega
   x_f = x0 * torch.cosh(wt) + vx0 * torch.sinh(wt) / omega
@@ -49,21 +50,24 @@ def compute_xcom_step_targets_b(
   y_f = y0 * torch.cosh(wt) + vy0 * torch.sinh(wt) / omega
   vy_f = y0 * omega * torch.sinh(wt) + vy0 * torch.cosh(wt)
 
-  x_f_b = x_f + support_foot_pos_b[:, 0:1]
-  y_f_b = y_f + support_foot_pos_b[:, 1:2]
+  x_f_w = x_f + support_foot_pos_w[:, 0:1]
+  y_f_w = y_f + support_foot_pos_w[:, 1:2]
 
-  eicp_x = x_f_b + vx_f / omega
-  eicp_y = y_f_b + vy_f / omega
+  eicp_x = x_f_w + vx_f / omega
+  eicp_y = y_f_w + vy_f / omega
 
-  offset_forward = -step_length / (torch.exp(wt) - 1.0)
-  offset_lateral = step_width / (torch.exp(wt) + 1.0)
+  offset_x_h = -step_length / (torch.exp(wt) - 1.0)
+  offset_y_h = step_width / (torch.exp(wt) + 1.0)
   if left_swing is not None:
-    offset_lateral = torch.where(left_swing.view(-1, 1), offset_lateral, -offset_lateral)
+    offset_y_h = torch.where(left_swing.view(-1, 1), offset_y_h, -offset_y_h)
   else:
-    offset_lateral = -offset_lateral
+    offset_y_h = -offset_y_h
 
-  target_b = torch.zeros(root_pos_b.shape[0], 3, device=root_pos_b.device)
-  target_b[:, 0] = (eicp_x + offset_forward).squeeze(1)
-  target_b[:, 1] = (eicp_y + offset_lateral).squeeze(1)
-  target_b[:, 2] = heading_b.squeeze(1) if heading_b.dim() > 1 else heading_b
-  return target_b
+  offset_x_w = torch.cos(heading_w) * offset_x_h - torch.sin(heading_w) * offset_y_h
+  offset_y_w = torch.sin(heading_w) * offset_x_h + torch.cos(heading_w) * offset_y_h
+
+  target_w = torch.zeros(com_pos_w.shape[0], 3, device=com_pos_w.device)
+  target_w[:, 0] = (eicp_x + offset_x_w).squeeze(1)
+  target_w[:, 1] = (eicp_y + offset_y_w).squeeze(1)
+  target_w[:, 2] = heading_w.squeeze(1) if heading_w.dim() > 1 else heading_w
+  return target_w

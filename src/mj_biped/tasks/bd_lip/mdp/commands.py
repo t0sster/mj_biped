@@ -138,6 +138,11 @@ class LipStepCommand(CommandTerm):
     self.swing_state = torch.zeros(self.num_envs, 2, dtype=torch.bool, device=self.device)
     self.frozen_targets_w = torch.zeros(self.num_envs, 2, 3, device=self.device)
     self.footstep_planner = PFootstepPlanner(cfg, self.device)
+    self._body_mass = torch.as_tensor(
+      self.robot.data.model.body_mass,
+      device=self.device,
+      dtype=torch.float,
+    )
 
     self.step_length = torch.full(
       (self.num_envs, 1),
@@ -186,6 +191,7 @@ class LipStepCommand(CommandTerm):
     root_pos_w = self.robot.data.root_link_pos_w
     root_vel_w = self.robot.data.root_link_lin_vel_w
     root_quat_w = self.robot.data.root_link_quat_w
+    com_pos_w = self._compute_com_w()
     foot_pos_w = self.robot.data.body_link_pos_w[:, self.foot_body_ids, :]
     foot_quat_w = self.robot.data.body_link_quat_w[:, self.foot_body_ids, :]
 
@@ -208,14 +214,17 @@ class LipStepCommand(CommandTerm):
     cmd = self._env.command_manager.get_command("base_velocity")
     cmd_vel_b = cmd[:, :2]
     cmd_wz = cmd[:, 2:3]
+    target_height = self._env.command_manager.get_command("base_height_command")
     plan = self.footstep_planner.plan(
       root_pos_w=root_pos_w,
       root_vel_w=root_vel_w,
       root_quat_w=root_quat_w,
+      com_pos_w=com_pos_w,
       foot_pos_w=foot_pos_w,
       foot_quat_w=foot_quat_w,
       cmd_vel_b=cmd_vel_b,
       cmd_wz=cmd_wz,
+      target_height=target_height,
       gait_command=gait_command,
       step_length_prior=self.step_length,
       step_width_prior=self.step_width,
@@ -266,6 +275,23 @@ class LipStepCommand(CommandTerm):
 
     self.step_target_command[:, 0:3] = right_target
     self.step_target_command[:, 3:6] = left_target
+
+  def _compute_com_w(self) -> torch.Tensor:
+    body_pos_w = self.robot.data.body_link_pos_w
+    mass = self._body_mass.to(device=body_pos_w.device, dtype=body_pos_w.dtype)
+
+    if mass.ndim == 1:
+      if mass.shape[0] != body_pos_w.shape[1]:
+        mass = mass[-body_pos_w.shape[1] :]
+      mass = mass.view(1, -1, 1).expand(body_pos_w.shape[0], -1, -1)
+    else:
+      mass = mass.reshape(body_pos_w.shape[0], -1)
+      if mass.shape[1] != body_pos_w.shape[1]:
+        mass = mass[:, -body_pos_w.shape[1] :]
+      mass = mass.unsqueeze(-1)
+
+    total_mass = torch.clamp(mass.sum(dim=1), min=1.0e-6)
+    return torch.sum(body_pos_w * mass, dim=1) / total_mass
 
   def _debug_vis_impl(self, visualizer) -> None:
     env_indices = visualizer.get_env_indices(self.num_envs)

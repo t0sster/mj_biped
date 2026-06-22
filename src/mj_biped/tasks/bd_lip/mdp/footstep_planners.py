@@ -7,7 +7,7 @@ import torch
 
 from mjlab.utils.lab_api import math as math_utils
 
-from mj_biped.tasks.bd_lip.mdp.lip import compute_xcom_step_targets_b
+from mj_biped.tasks.bd_lip.mdp.lip import compute_xcom_step_targets_w
 
 
 class LipStepPlannerCfg(Protocol):
@@ -39,10 +39,12 @@ class FootstepPlanner(Protocol):
     root_pos_w: torch.Tensor,
     root_vel_w: torch.Tensor,
     root_quat_w: torch.Tensor,
+    com_pos_w: torch.Tensor,
     foot_pos_w: torch.Tensor,
     foot_quat_w: torch.Tensor,
     cmd_vel_b: torch.Tensor,
     cmd_wz: torch.Tensor,
+    target_height: torch.Tensor,
     gait_command: torch.Tensor,
     step_length_prior: torch.Tensor | None,
     step_width_prior: torch.Tensor | None,
@@ -73,10 +75,12 @@ class PFootstepPlanner:
     root_pos_w: torch.Tensor,
     root_vel_w: torch.Tensor,
     root_quat_w: torch.Tensor,
+    com_pos_w: torch.Tensor,
     foot_pos_w: torch.Tensor,
     foot_quat_w: torch.Tensor,
     cmd_vel_b: torch.Tensor,
     cmd_wz: torch.Tensor,
+    target_height: torch.Tensor,
     gait_command: torch.Tensor,
     step_length_prior: torch.Tensor | None,
     step_width_prior: torch.Tensor | None,
@@ -87,9 +91,10 @@ class PFootstepPlanner:
     swing_left: torch.Tensor,
   ) -> FootstepPlan:
     yaw_quat_w = math_utils.yaw_quat(root_quat_w)
-    root_pos_b = torch.zeros_like(root_pos_w)
-    root_pos_b[:, 2:3] = root_pos_w[:, 2:3]
     root_vel_b = math_utils.quat_apply_inverse(yaw_quat_w, root_vel_w)
+    cmd_vel_w_3d = torch.zeros(root_pos_w.shape[0], 3, device=self.device)
+    cmd_vel_w_3d[:, :2] = cmd_vel_b
+    cmd_vel_w = math_utils.quat_apply(yaw_quat_w, cmd_vel_w_3d)[:, :2]
 
     foot_pos_b = math_utils.quat_apply_inverse(
       yaw_quat_w.unsqueeze(1).expand(-1, foot_pos_w.shape[1], -1).reshape(-1, 4),
@@ -115,6 +120,12 @@ class PFootstepPlanner:
       torch.atan2(cmd_vel_b[:, 1], cmd_vel_b[:, 0]).unsqueeze(1),
       torch.zeros_like(cmd_speed),
     )
+    base_heading_w = self._base_heading(root_quat_w)
+    step_heading_w = torch.where(
+      cmd_speed > self.cfg.heading_speed_eps,
+      torch.atan2(cmd_vel_w[:, 1], cmd_vel_w[:, 0]).unsqueeze(1),
+      base_heading_w,
+    )
 
     if step_length_prior is not None and torch.any(step_length_prior.abs() > 1.0e-8):
       nominal_step_length = step_length_prior
@@ -131,15 +142,15 @@ class PFootstepPlanner:
     step_width = torch.clamp(nominal_step_width, min=0.05)
 
     target_heading_w = (
-      math_utils.wrap_to_pi(self._base_heading(root_quat_w) + cmd_wz * step_time)
+      math_utils.wrap_to_pi(base_heading_w + cmd_wz * step_time)
       if self.cfg.use_cmd_heading
-      else self._base_heading(root_quat_w)
+      else base_heading_w
     )
 
-    support_pos_b = torch.where(
+    support_pos_w = torch.where(
       swing_right.unsqueeze(1),
-      foot_pos_b[:, 1, :],
-      foot_pos_b[:, 0, :],
+      foot_pos_w[:, 1, :],
+      foot_pos_w[:, 0, :],
     )
     heading_dir_b = torch.stack(
       (torch.cos(step_heading_b.squeeze(1)), torch.sin(step_heading_b.squeeze(1))),
@@ -161,29 +172,17 @@ class PFootstepPlanner:
     speed_feedback = self.cfg.stride_compensation_gain * speed_error * step_time
     speed_feedback = torch.clamp(speed_feedback, min=-comp_limit, max=comp_limit)
     step_length_eff = torch.clamp(step_length + speed_feedback + swing_sign * comp, min=0.0)
-    target_b = compute_xcom_step_targets_b(
-      root_pos_b,
-      root_vel_b,
-      support_pos_b,
-      step_heading_b,
+    target_w = compute_xcom_step_targets_w(
+      com_pos_w,
+      root_vel_w,
+      support_pos_w,
+      step_heading_w,
       step_time,
       step_width,
       step_length_eff,
+      target_height,
       swing_left,
     )
-
-    # Make yaw command affect the touchdown geometry, not only the final heading.
-    # This rotates the planned step vector in the yaw-base frame.
-    turn_angle = self.cfg.turn_length_gain * cmd_wz * step_time
-    turn_cos = torch.cos(turn_angle)
-    turn_sin = torch.sin(turn_angle)
-    target_xy_b = target_b[:, :2].clone()
-    target_b[:, 0] = turn_cos.squeeze(1) * target_xy_b[:, 0] - turn_sin.squeeze(1) * target_xy_b[:, 1]
-    target_b[:, 1] = turn_sin.squeeze(1) * target_xy_b[:, 0] + turn_cos.squeeze(1) * target_xy_b[:, 1]
-
-    target_vec_b = torch.zeros_like(target_b)
-    target_vec_b[:, :2] = target_b[:, :2]
-    target_xy_w = root_pos_w[:, :2] + math_utils.quat_apply(yaw_quat_w, target_vec_b)[:, :2]
 
     return FootstepPlan(
       step_time=step_time,
@@ -191,7 +190,7 @@ class PFootstepPlanner:
       step_width=step_width,
       step_heading_b=step_heading_b,
       target_heading_w=target_heading_w,
-      target_xy_w=target_xy_w,
+      target_xy_w=target_w[:, :2],
     )
 
   def _base_heading(self, root_quat_w: torch.Tensor) -> torch.Tensor:
