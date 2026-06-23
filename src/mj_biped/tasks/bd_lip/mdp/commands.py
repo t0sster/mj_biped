@@ -108,8 +108,6 @@ class LipStepCommandCfg(CommandTermCfg):
   heading_speed_eps: float = 1.0e-3
   stride_compensation_gain: float = 0.0
   stride_compensation_max_ratio: float = 0.5
-  lateral_capture_gain: float = 0.3
-  lateral_capture_max: float = 0.04
   turn_width_gain: float = 0.15
   turn_length_gain: float = 1.0
   ranges: Ranges | None = None

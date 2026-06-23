@@ -18,8 +18,6 @@ class LipStepPlannerCfg(Protocol):
   heading_speed_eps: float
   stride_compensation_gain: float
   stride_compensation_max_ratio: float
-  lateral_capture_gain: float
-  lateral_capture_max: float
   turn_width_gain: float
   turn_length_gain: float
 
@@ -185,13 +183,6 @@ class PFootstepPlanner:
       target_height,
       swing_left,
     )
-    target_xy_w = self._limit_lateral_width(
-      target_xy_w=target_w[:, :2],
-      support_xy_w=support_pos_w[:, :2],
-      yaw_quat_w=yaw_quat_w,
-      step_width=step_width,
-      swing_sign=swing_sign,
-    )
 
     return FootstepPlan(
       step_time=step_time,
@@ -199,45 +190,10 @@ class PFootstepPlanner:
       step_width=step_width,
       step_heading_b=step_heading_b,
       target_heading_w=target_heading_w,
-      target_xy_w=target_xy_w,
+      target_xy_w=target_w[:, :2],
     )
 
   def _base_heading(self, root_quat_w: torch.Tensor) -> torch.Tensor:
     forward_b = torch.tensor([1.0, 0.0, 0.0], device=self.device).repeat(root_quat_w.shape[0], 1)
     forward_w = math_utils.quat_apply(math_utils.yaw_quat(root_quat_w), forward_b)
     return torch.atan2(forward_w[:, 1], forward_w[:, 0]).unsqueeze(1)
-
-  def _limit_lateral_width(
-    self,
-    *,
-    target_xy_w: torch.Tensor,
-    support_xy_w: torch.Tensor,
-    yaw_quat_w: torch.Tensor,
-    step_width: torch.Tensor,
-    swing_sign: torch.Tensor,
-  ) -> torch.Tensor:
-    n = target_xy_w.shape[0]
-    forward_b = torch.tensor(
-      [1.0, 0.0, 0.0], device=self.device, dtype=target_xy_w.dtype
-    ).repeat(n, 1)
-    left_b = torch.tensor(
-      [0.0, 1.0, 0.0], device=self.device, dtype=target_xy_w.dtype
-    ).repeat(n, 1)
-    forward_w = math_utils.quat_apply(yaw_quat_w, forward_b)[:, :2]
-    left_w = math_utils.quat_apply(yaw_quat_w, left_b)[:, :2]
-
-    target_from_support_w = target_xy_w - support_xy_w
-    forward_dist = torch.sum(target_from_support_w * forward_w, dim=1, keepdim=True)
-    lateral_dist_xcom = torch.sum(target_from_support_w * left_w, dim=1, keepdim=True)
-
-    lateral_nominal = swing_sign * step_width
-    lateral_correction = self.cfg.lateral_capture_gain * (
-      lateral_dist_xcom - lateral_nominal
-    )
-    lateral_correction = torch.clamp(
-      lateral_correction,
-      min=-self.cfg.lateral_capture_max,
-      max=self.cfg.lateral_capture_max,
-    )
-    lateral_dist = lateral_nominal + lateral_correction
-    return support_xy_w + forward_w * forward_dist + left_w * lateral_dist
