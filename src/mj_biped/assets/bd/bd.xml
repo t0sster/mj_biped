@@ -23,10 +23,13 @@
     <mesh name="R2_Link" file="meshes/R2_Link.STL" />
     <mesh name="R3_Link" file="meshes/R3_Link.STL" />
     <mesh name="R4_Link_ankle" file="meshes/R4_Link_ankle.STL" />
+
+    <texture type="2d" name="grid_tex" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" width="100" height="100"/>
+    <material name="grid" texture="grid_tex" texrepeat="1 1" texuniform="true"/>
   </asset>
 
   <worldbody>
-    <geom name="__mjv_default_floor" type="plane" pos="0 0 0" size="0 0 0.125" friction="0.8 0.005 0.0001" contype="15" conaffinity="15" rgba="0.8 0.8 0.8 1"/>
+    <!-- <geom name="__mjv_default_floor" type="plane" pos="0 0 0" size="0 0 0.125" friction="0.8 0.005 0.0001" contype="15" conaffinity="15" rgba="0.8 0.8 0.8 1"/> -->
     
     <!-- <body name="base_link" gravcomp="0.5"> -->
     <body name="base_link">

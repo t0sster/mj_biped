@@ -212,13 +212,17 @@ def contact_schedule(
   env,
   sensor_name: str,
   body_names: tuple[str, str],
+  asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
   command_name: str = "gait_command",
   velocity_command_name: str = "base_velocity",
+  step_command_name: str = "lip_step_command",
   command_threshold: float = 0.05,
   threshold: float = 1.0,
   sigma: float = 0.25,
+  tracking_sigma: float = 1.0,
 ) -> torch.Tensor:
   sensor: ContactSensor = env.scene[sensor_name]
+  asset: Entity = env.scene[asset_cfg.name]
   command = env.command_manager.get_command(command_name)
   right_phase, left_phase, duration = gait_phase_from_command(
     env.episode_length_buf, env.step_dt, command
@@ -234,7 +238,20 @@ def contact_schedule(
     actual = _contact_ordered(sensor.data.found, sensor, body_names) > 0
 
   mismatch = (actual != desired).float().sum(dim=1)
-  reward = torch.exp(-mismatch / sigma)
+  contact_reward = torch.exp(-mismatch / sigma)
+
+  foot_pos_w = asset.data.body_link_pos_w[:, asset_cfg.body_ids, :]
+  step_command = env.command_manager.get_command(step_command_name)
+  target_xy_w = torch.stack((step_command[:, 0:2], step_command[:, 3:5]), dim=1)
+  target_pos_w = torch.zeros_like(foot_pos_w)
+  target_pos_w[:, :, :2] = target_xy_w
+  target_pos_w[:, :, 2] = foot_pos_w[:, :, 2]
+  step_location_offset = torch.norm(foot_pos_w - target_pos_w, dim=2)
+  stance_mask = desired.float()
+  stance_count = torch.clamp(stance_mask.sum(dim=1), min=1.0)
+  stance_error = torch.sum(step_location_offset * stance_mask, dim=1) / stance_count
+  tracking_reward = torch.exp(-stance_error / tracking_sigma)
+  reward = contact_reward * tracking_reward
 
   velocity_command = env.command_manager.get_command(velocity_command_name)
   command_norm = torch.norm(velocity_command[:, :2], dim=1) + torch.abs(
@@ -242,6 +259,116 @@ def contact_schedule(
   )
   moving = command_norm > command_threshold
   return torch.where(moving, reward, torch.ones_like(reward))
+
+
+def swing_contact_penalty(
+  env,
+  sensor_name: str,
+  body_names: tuple[str, str],
+  gait_command_name: str = "gait_command",
+  velocity_command_name: str = "base_velocity",
+  command_threshold: float = 0.05,
+  contact_threshold: float = 1.0,
+) -> torch.Tensor:
+  sensor: ContactSensor = env.scene[sensor_name]
+  gait_command = env.command_manager.get_command(gait_command_name)
+  right_phase, left_phase, duration = gait_phase_from_command(
+    env.episode_length_buf, env.step_dt, gait_command
+  )
+  swing = torch.stack((right_phase >= duration, left_phase >= duration), dim=1)
+
+  tie_break = (swing[:, 0] & swing[:, 1]) | ((~swing[:, 0]) & (~swing[:, 1]))
+  swing[tie_break, 0] = right_phase[tie_break] > left_phase[tie_break]
+  swing[tie_break, 1] = ~swing[tie_break, 0]
+
+  if sensor.data.force is not None:
+    force = _contact_ordered(sensor.data.force, sensor, body_names)
+    contact = torch.norm(force, dim=-1) > contact_threshold
+  else:
+    assert sensor.data.found is not None
+    contact = _contact_ordered(sensor.data.found, sensor, body_names) > 0
+
+  command = env.command_manager.get_command(velocity_command_name)
+  command_norm = torch.norm(command[:, :2], dim=1) + torch.abs(command[:, 2])
+  moving = command_norm > command_threshold
+  penalty = torch.sum((swing & contact).float(), dim=1)
+  return torch.where(moving, penalty, torch.zeros_like(penalty))
+
+
+def swing_air_time_reward(
+  env,
+  sensor_name: str,
+  body_names: tuple[str, str],
+  gait_command_name: str = "gait_command",
+  velocity_command_name: str = "base_velocity",
+  command_threshold: float = 0.05,
+  contact_threshold: float = 1.0,
+  min_swing_time: float = 0.1,
+) -> torch.Tensor:
+  sensor: ContactSensor = env.scene[sensor_name]
+  gait_command = env.command_manager.get_command(gait_command_name)
+  right_phase, left_phase, duration = gait_phase_from_command(
+    env.episode_length_buf, env.step_dt, gait_command
+  )
+  swing = torch.stack((right_phase >= duration, left_phase >= duration), dim=1)
+
+  tie_break = (swing[:, 0] & swing[:, 1]) | ((~swing[:, 0]) & (~swing[:, 1]))
+  swing[tie_break, 0] = right_phase[tie_break] > left_phase[tie_break]
+  swing[tie_break, 1] = ~swing[tie_break, 0]
+
+  if sensor.data.force is not None:
+    force = _contact_ordered(sensor.data.force, sensor, body_names)
+    contact = torch.norm(force, dim=-1) > contact_threshold
+  else:
+    assert sensor.data.found is not None
+    contact = _contact_ordered(sensor.data.found, sensor, body_names) > 0
+
+  freq = gait_command[:, 0].clamp(min=1.0e-3)
+  swing_time = torch.clamp((1.0 - duration) / freq, min=min_swing_time)
+  last_air_time = _contact_ordered(sensor.data.last_air_time[:, :], sensor, body_names)
+  normalized_air_time = torch.clamp(last_air_time / swing_time.unsqueeze(1), 0.0, 1.0)
+  reward = torch.sum(normalized_air_time * (swing & ~contact).float(), dim=1)
+
+  command = env.command_manager.get_command(velocity_command_name)
+  command_norm = torch.norm(command[:, :2], dim=1) + torch.abs(command[:, 2])
+  moving = command_norm > command_threshold
+  return torch.where(moving, reward, torch.zeros_like(reward))
+
+
+def swing_foot_height_reward(
+  env,
+  asset_cfg: SceneEntityCfg,
+  gait_command_name: str = "gait_command",
+  velocity_command_name: str = "base_velocity",
+  command_threshold: float = 0.05,
+  clearance: float = 0.01,
+) -> torch.Tensor:
+  asset: Entity = env.scene[asset_cfg.name]
+  foot_pos_w = asset.data.body_link_pos_w[:, asset_cfg.body_ids, :]
+
+  gait_command = env.command_manager.get_command(gait_command_name)
+  right_phase, left_phase, duration = gait_phase_from_command(
+    env.episode_length_buf, env.step_dt, gait_command
+  )
+  swing = torch.stack((right_phase >= duration, left_phase >= duration), dim=1)
+
+  tie_break = (swing[:, 0] & swing[:, 1]) | ((~swing[:, 0]) & (~swing[:, 1]))
+  swing[tie_break, 0] = right_phase[tie_break] > left_phase[tie_break]
+  swing[tie_break, 1] = ~swing[tie_break, 0]
+
+  stance = ~swing
+  stance_count = torch.clamp(stance.float().sum(dim=1, keepdim=True), min=1.0)
+  stance_height = torch.sum(foot_pos_w[:, :, 2] * stance.float(), dim=1, keepdim=True)
+  stance_height = stance_height / stance_count
+  relative_height = foot_pos_w[:, :, 2] - stance_height
+
+  reward_per_foot = torch.clamp(relative_height / max(clearance, 1.0e-6), 0.0, 1.0)
+  reward = torch.sum(reward_per_foot * swing.float(), dim=1)
+
+  command = env.command_manager.get_command(velocity_command_name)
+  command_norm = torch.norm(command[:, :2], dim=1) + torch.abs(command[:, 2])
+  moving = command_norm > command_threshold
+  return torch.where(moving, reward, torch.zeros_like(reward))
 
 
 def feet_air_time(
