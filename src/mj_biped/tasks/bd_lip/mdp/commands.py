@@ -108,8 +108,12 @@ class LipStepCommandCfg(CommandTermCfg):
   heading_speed_eps: float = 1.0e-3
   stride_compensation_gain: float = 0.0
   stride_compensation_max_ratio: float = 0.5
+  lateral_capture_gain: float = 0.0
+  lateral_capture_max: float = 0.0
   turn_width_gain: float = 0.15
   turn_length_gain: float = 1.0
+  contact_sensor_name: str = "feet_contact"
+  contact_threshold: float = 1.0
   ranges: Ranges | None = None
 
   def build(self, env: ManagerBasedRlEnv) -> LipStepCommand:
@@ -137,7 +141,14 @@ class LipStepCommand(CommandTerm):
     self.forward_b = torch.tensor([1.0, 0.0, 0.0], device=self.device)
     self.swing_state = torch.zeros(self.num_envs, 2, dtype=torch.bool, device=self.device)
     self.frozen_targets_w = torch.zeros(self.num_envs, 2, 3, device=self.device)
+    self.support_steps_w = torch.zeros(self.num_envs, 2, 3, device=self.device)
+    self.target_initialized = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
     self.footstep_planner = PFootstepPlanner(cfg, self.device)
+    self._body_mass = torch.as_tensor(
+      self.robot.data.model.body_mass,
+      device=self.device,
+      dtype=torch.float,
+    )
 
     self.step_length = torch.full(
       (self.num_envs, 1),
@@ -163,6 +174,8 @@ class LipStepCommand(CommandTerm):
     if isinstance(env_ids, torch.Tensor):
       self.swing_state[env_ids] = False
       self.frozen_targets_w[env_ids] = 0.0
+      self.support_steps_w[env_ids] = 0.0
+      self.target_initialized[env_ids] = False
     return extras
 
   def _resample_command(self, env_ids: torch.Tensor) -> None:
@@ -186,6 +199,7 @@ class LipStepCommand(CommandTerm):
     root_pos_w = self.robot.data.root_link_pos_w
     root_vel_w = self.robot.data.root_link_lin_vel_w
     root_quat_w = self.robot.data.root_link_quat_w
+    com_pos_w = self._compute_com_w()
     foot_pos_w = self.robot.data.body_link_pos_w[:, self.foot_body_ids, :]
     foot_quat_w = self.robot.data.body_link_quat_w[:, self.foot_body_ids, :]
 
@@ -205,17 +219,46 @@ class LipStepCommand(CommandTerm):
     swing_right[tie_break] = right_phase[tie_break] > left_phase[tie_break]
     swing_left[tie_break] = ~swing_right[tie_break]
 
+    foot_forward = self.forward_b.repeat(foot_quat_w.shape[0], 1)
+    right_forward_w = math_utils.quat_apply(foot_quat_w[:, 0, :], foot_forward)
+    left_forward_w = math_utils.quat_apply(foot_quat_w[:, 1, :], foot_forward)
+    right_yaw_w = torch.atan2(right_forward_w[:, 1], right_forward_w[:, 0])
+    left_yaw_w = torch.atan2(left_forward_w[:, 1], left_forward_w[:, 0])
+    foot_yaw_w = torch.stack((right_yaw_w, left_yaw_w), dim=1)
+
+    uninitialized = ~self.target_initialized
+    if uninitialized.any():
+      self.frozen_targets_w[uninitialized, :, :2] = foot_pos_w[uninitialized, :, :2]
+      self.frozen_targets_w[uninitialized, :, 2] = foot_yaw_w[uninitialized]
+      self.support_steps_w[uninitialized, :, :2] = foot_pos_w[uninitialized, :, :2]
+      self.support_steps_w[uninitialized, :, 2] = foot_yaw_w[uninitialized]
+      self.target_initialized[uninitialized] = True
+
+    foot_contact = self._foot_contact()
+    if foot_contact.any():
+      self.support_steps_w[foot_contact, :2] = foot_pos_w[foot_contact, :2]
+      self.support_steps_w[foot_contact, 2] = foot_yaw_w[foot_contact]
+
+    foot_pos_for_plan_w = foot_pos_w.clone()
+    stance_right = ~swing_right
+    stance_left = ~swing_left
+    foot_pos_for_plan_w[stance_right, 0, :2] = self.support_steps_w[stance_right, 0, :2]
+    foot_pos_for_plan_w[stance_left, 1, :2] = self.support_steps_w[stance_left, 1, :2]
+
     cmd = self._env.command_manager.get_command("base_velocity")
     cmd_vel_b = cmd[:, :2]
     cmd_wz = cmd[:, 2:3]
+    target_height = self._env.command_manager.get_command("base_height_command")
     plan = self.footstep_planner.plan(
       root_pos_w=root_pos_w,
       root_vel_w=root_vel_w,
       root_quat_w=root_quat_w,
-      foot_pos_w=foot_pos_w,
+      com_pos_w=com_pos_w,
+      foot_pos_w=foot_pos_for_plan_w,
       foot_quat_w=foot_quat_w,
       cmd_vel_b=cmd_vel_b,
       cmd_wz=cmd_wz,
+      target_height=target_height,
       gait_command=gait_command,
       step_length_prior=self.step_length,
       step_width_prior=self.step_width,
@@ -225,12 +268,6 @@ class LipStepCommand(CommandTerm):
       swing_right=swing_right,
       swing_left=swing_left,
     )
-
-    foot_forward = self.forward_b.repeat(foot_quat_w.shape[0], 1)
-    right_forward_w = math_utils.quat_apply(foot_quat_w[:, 0, :], foot_forward)
-    left_forward_w = math_utils.quat_apply(foot_quat_w[:, 1, :], foot_forward)
-    right_yaw_w = torch.atan2(right_forward_w[:, 1], right_forward_w[:, 0])
-    left_yaw_w = torch.atan2(left_forward_w[:, 1], left_forward_w[:, 0])
 
     swing_now = torch.stack((swing_right, swing_left), dim=1)
     swing_start = swing_now & ~self.swing_state
@@ -245,27 +282,8 @@ class LipStepCommand(CommandTerm):
       self.frozen_targets_w[left_ids, 1, :2] = plan.target_xy_w[left_ids]
       self.frozen_targets_w[left_ids, 1, 2] = plan.target_heading_w[left_ids, 0]
 
-    right_target = torch.zeros(self.num_envs, 3, device=self.device)
-    left_target = torch.zeros(self.num_envs, 3, device=self.device)
-    right_target[:, :2] = torch.where(
-      swing_right.unsqueeze(1),
-      self.frozen_targets_w[:, 0, :2],
-      foot_pos_w[:, 0, :2],
-    )
-    left_target[:, :2] = torch.where(
-      swing_left.unsqueeze(1),
-      self.frozen_targets_w[:, 1, :2],
-      foot_pos_w[:, 1, :2],
-    )
-    right_target[:, 2] = torch.where(
-      swing_right, self.frozen_targets_w[:, 0, 2], right_yaw_w
-    )
-    left_target[:, 2] = torch.where(
-      swing_left, self.frozen_targets_w[:, 1, 2], left_yaw_w
-    )
-
-    self.step_target_command[:, 0:3] = right_target
-    self.step_target_command[:, 3:6] = left_target
+    self.step_target_command[:, 0:3] = self.frozen_targets_w[:, 0, :]
+    self.step_target_command[:, 3:6] = self.frozen_targets_w[:, 1, :]
 
   def _debug_vis_impl(self, visualizer) -> None:
     env_indices = visualizer.get_env_indices(self.num_envs)
@@ -334,3 +352,33 @@ class LipStepCommand(CommandTerm):
 
   def _update_metrics(self) -> None:
     pass
+
+  def _foot_contact(self) -> torch.Tensor:
+    sensor = self._env.scene[self.cfg.contact_sensor_name]
+    order = torch.tensor(
+      [sensor.primary_names.index(name) for name in self.cfg.foot_body_names],
+      device=self.device,
+      dtype=torch.long,
+    )
+    if sensor.data.force is not None:
+      force = sensor.data.force.index_select(1, order)
+      return torch.norm(force, dim=-1) > self.cfg.contact_threshold
+    assert sensor.data.found is not None
+    return sensor.data.found.index_select(1, order) > 0
+
+  def _compute_com_w(self) -> torch.Tensor:
+    body_pos_w = self.robot.data.body_link_pos_w
+    mass = self._body_mass.to(device=body_pos_w.device, dtype=body_pos_w.dtype)
+
+    if mass.ndim == 1:
+      if mass.shape[0] != body_pos_w.shape[1]:
+        mass = mass[-body_pos_w.shape[1] :]
+      mass = mass.view(1, -1, 1).expand(body_pos_w.shape[0], -1, -1)
+    else:
+      mass = mass.reshape(body_pos_w.shape[0], -1)
+      if mass.shape[1] != body_pos_w.shape[1]:
+        mass = mass[:, -body_pos_w.shape[1] :]
+      mass = mass.unsqueeze(-1)
+
+    total_mass = torch.clamp(mass.sum(dim=1), min=1.0e-6)
+    return torch.sum(body_pos_w * mass, dim=1) / total_mass

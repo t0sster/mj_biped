@@ -199,7 +199,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   commands: dict[str, CommandTermCfg] = {
     "base_velocity": UniformVelocityCommandCfg(
       entity_name="robot",
-      heading_command=True,
+      heading_command=False,
       heading_control_stiffness=1.0,
       rel_standing_envs=0.05,
       rel_heading_envs=0.7,
@@ -207,38 +207,38 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       resampling_time_range=(5.0, 5.0),
       debug_vis=True,
       ranges=UniformVelocityCommandCfg.Ranges(
-        lin_vel_x=(-0.2, 0.3),
-        lin_vel_y=(-0.15, 0.15),
-        ang_vel_z=(-0.5, 0.5),
-        heading=(-math.pi / 4, math.pi / 4),
+        lin_vel_x=(-0.1, 0.3),
+        lin_vel_y=(-0.1, 0.1),
+        ang_vel_z=(-1.0, 1.0),
+        heading=None,
       ),
     ),
     "gait_command": mdp.UniformGaitCommandCfg(
-      resampling_time_range=(5.0, 5.0),
+      resampling_time_range=(1e6, 1e6),
       ranges=mdp.UniformGaitCommandCfg.Ranges(
-        frequencies=(1.0, 2.0),
-        offsets=(0.45, 0.55),
-        durations=(0.45, 0.55),
+        frequencies=(1.5, 1.5),
+        offsets=(0.50, 0.50),
+        durations=(0.50, 0.50),
       ),
     ),
     "lip_step_command": mdp.LipStepCommandCfg(
       entity_name="robot",
       foot_body_names=FEET_BODY_NAMES,
       nominal_step_length=None,
-      nominal_step_width=0.22,
+      nominal_step_width=0.18,
       step_period_s=None,
       use_cmd_heading=True,
       debug_vis=play,
       resampling_time_range=(1.0e6, 1.0e6),
       ranges=mdp.LipStepCommandCfg.Ranges(
         step_length=None,
-        step_width=(0.18, 0.21),
+        step_width=(0.18, 0.18),
         step_period_s=None,
       ),
     ),
     "base_height_command": mdp.BaseHeightCommandCfg(
       resampling_time_range=(1.0e6, 1.0e6),
-      ranges=mdp.BaseHeightCommandCfg.Ranges(height=(0.26, 0.30)),
+      ranges=mdp.BaseHeightCommandCfg.Ranges(height=(0.26, 0.26)),
     ),
   }
 
@@ -272,7 +272,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   rewards = {
     "track_linear_velocity": RewardTermCfg(
       func=velocity_mdp.track_linear_velocity,
-      weight=3.0,
+      weight=2.0,
       params={"command_name": "base_velocity", "std": math.sqrt(0.1)},
     ),
     "track_angular_velocity": RewardTermCfg(
@@ -282,7 +282,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ),
     "step_tracking": RewardTermCfg(
       func=mdp.step_command_tracking,
-      weight=3.0,
+      weight=2.0,
       params={
         "asset_cfg": feet_body_cfg,
         "command_name": "lip_step_command",
@@ -300,15 +300,18 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ),
     "contact_schedule": RewardTermCfg(
       func=mdp.contact_schedule,
-      weight=2.0,
+      weight=1.0,
       params={
         "sensor_name": "feet_contact",
         "command_name": "gait_command",
         "velocity_command_name": "base_velocity",
+        "step_command_name": "lip_step_command",
+        "asset_cfg": feet_body_cfg,
         "body_names": FEET_BODY_NAMES,
         "command_threshold": 0.02,
         "threshold": 1.0,
-        "sigma": 0.25,
+        "sigma": 0.15,
+        "tracking_sigma": 1.0,
       },
     ),
     "feet_air_time": RewardTermCfg(
@@ -319,11 +322,23 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
           "command_name": "base_velocity",
           "gait_command_name": "gait_command",
           "body_names": FEET_BODY_NAMES,
-          "threshold": 0.03,
-          "swing_time_scale": 1.0,
+          "threshold": 0.01,
+          "swing_time_scale": 0.7,
           "min_threshold": 0.1,
           "contact_force_threshold": 1.0,
-          "sigma": 0.25,
+          "sigma": 0.15,
+      },
+    ),
+    "swing_contact": RewardTermCfg(
+      func=mdp.swing_contact_penalty,
+      weight=-7.0,
+      params={
+        "sensor_name": "feet_contact",
+        "body_names": FEET_BODY_NAMES,
+        "gait_command_name": "gait_command",
+        "velocity_command_name": "base_velocity",
+        "command_threshold": 0.02,
+        "contact_threshold": 0.1,
       },
     ),
     "base_height": RewardTermCfg(
@@ -345,7 +360,7 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ),
     "foot_slip": RewardTermCfg(
       func=mdp.foot_slip_penalty,
-      weight=-0.5,
+      weight=-2.0,
       params={
         "sensor_name": "feet_contact",
         "asset_cfg": feet_body_cfg,
@@ -471,9 +486,9 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
   if play:
     cfg.commands["base_velocity"].ranges = UniformVelocityCommandCfg.Ranges(
-      lin_vel_x=(-0.2, 0.4),
-      lin_vel_y=(-0.15, 0.15),
-      ang_vel_z=(-0.1, 0.1),
+      lin_vel_x=(-0.1, 0.3),
+      lin_vel_y=(-0.1, 0.1),
+      ang_vel_z=(-1.0, 1.0),
       heading=None,
     )
     cfg.commands["base_velocity"].heading_command = False

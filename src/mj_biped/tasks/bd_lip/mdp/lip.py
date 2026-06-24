@@ -67,3 +67,52 @@ def compute_xcom_step_targets_b(
   target_b[:, 1] = (eicp_y + offset_lateral).squeeze(1)
   target_b[:, 2] = heading_b.squeeze(1) if heading_b.dim() > 1 else heading_b
   return target_b
+
+
+def compute_xcom_step_targets_w(
+  com_pos_w: torch.Tensor,
+  root_lin_vel_w: torch.Tensor,
+  support_foot_pos_w: torch.Tensor,
+  heading_w: torch.Tensor,
+  step_time: torch.Tensor,
+  step_width: torch.Tensor,
+  step_length: torch.Tensor,
+  height: torch.Tensor,
+  left_swing: torch.Tensor | None = None,
+  gravity: float = 9.81,
+) -> torch.Tensor:
+  """Compute a reference-style XCoM step target in world coordinates."""
+  omega = torch.sqrt(gravity / height.clamp(min=0.05))
+
+  x0 = com_pos_w[:, 0:1] - support_foot_pos_w[:, 0:1]
+  y0 = com_pos_w[:, 1:2] - support_foot_pos_w[:, 1:2]
+  vx0 = root_lin_vel_w[:, 0:1]
+  vy0 = root_lin_vel_w[:, 1:2]
+
+  wt = step_time * omega
+  x_f = x0 * torch.cosh(wt) + vx0 * torch.sinh(wt) / omega
+  vx_f = x0 * omega * torch.sinh(wt) + vx0 * torch.cosh(wt)
+  y_f = y0 * torch.cosh(wt) + vy0 * torch.sinh(wt) / omega
+  vy_f = y0 * omega * torch.sinh(wt) + vy0 * torch.cosh(wt)
+
+  x_f_w = x_f + support_foot_pos_w[:, 0:1]
+  y_f_w = y_f + support_foot_pos_w[:, 1:2]
+
+  eicp_x = x_f_w + vx_f / omega
+  eicp_y = y_f_w + vy_f / omega
+
+  offset_forward = -step_length / (torch.exp(wt) - 1.0)
+  offset_lateral = step_width / (torch.exp(wt) + 1.0)
+  if left_swing is not None:
+    offset_lateral = torch.where(left_swing.view(-1, 1), offset_lateral, -offset_lateral)
+  else:
+    offset_lateral = -offset_lateral
+
+  offset_x = torch.cos(heading_w) * offset_forward - torch.sin(heading_w) * offset_lateral
+  offset_y = torch.sin(heading_w) * offset_forward + torch.cos(heading_w) * offset_lateral
+
+  target_w = torch.zeros(com_pos_w.shape[0], 3, device=com_pos_w.device)
+  target_w[:, 0] = (eicp_x + offset_x).squeeze(1)
+  target_w[:, 1] = (eicp_y + offset_y).squeeze(1)
+  target_w[:, 2] = heading_w.squeeze(1) if heading_w.dim() > 1 else heading_w
+  return target_w
