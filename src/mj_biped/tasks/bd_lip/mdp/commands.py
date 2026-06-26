@@ -114,7 +114,10 @@ class LipStepCommandCfg(CommandTermCfg):
   turn_length_gain: float = 1.0
   contact_sensor_name: str = "feet_contact"
   contact_threshold: float = 1.0
+<<<<<<< HEAD
   sync_velocity_command: bool = True
+=======
+>>>>>>> dev-biped-pp-alt
   ranges: Ranges | None = None
 
   def build(self, env: ManagerBasedRlEnv) -> LipStepCommand:
@@ -141,7 +144,11 @@ class LipStepCommand(CommandTerm):
 
     self.forward_b = torch.tensor([1.0, 0.0, 0.0], device=self.device)
     self.swing_state = torch.zeros(self.num_envs, 2, dtype=torch.bool, device=self.device)
+<<<<<<< HEAD
     self.step_targets_w = torch.zeros(self.num_envs, 2, 3, device=self.device)
+=======
+    self.frozen_targets_w = torch.zeros(self.num_envs, 2, 3, device=self.device)
+>>>>>>> dev-biped-pp-alt
     self.support_steps_w = torch.zeros(self.num_envs, 2, 3, device=self.device)
     self.target_initialized = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
     self.footstep_planner = PFootstepPlanner(cfg, self.device)
@@ -174,7 +181,11 @@ class LipStepCommand(CommandTerm):
     extras = super().reset(env_ids)
     if isinstance(env_ids, torch.Tensor):
       self.swing_state[env_ids] = False
+<<<<<<< HEAD
       self.step_targets_w[env_ids] = 0.0
+=======
+      self.frozen_targets_w[env_ids] = 0.0
+>>>>>>> dev-biped-pp-alt
       self.support_steps_w[env_ids] = 0.0
       self.target_initialized[env_ids] = False
     return extras
@@ -227,10 +238,24 @@ class LipStepCommand(CommandTerm):
     swing_right[tie_break] = right_phase[tie_break] > left_phase[tie_break]
     swing_left[tie_break] = ~swing_right[tie_break]
 
+<<<<<<< HEAD
     uninitialized = ~self.target_initialized
     if uninitialized.any():
       self.step_targets_w[uninitialized, :, :2] = foot_pos_w[uninitialized, :, :2]
       self.step_targets_w[uninitialized, :, 2] = foot_yaw_w[uninitialized]
+=======
+    foot_forward = self.forward_b.repeat(foot_quat_w.shape[0], 1)
+    right_forward_w = math_utils.quat_apply(foot_quat_w[:, 0, :], foot_forward)
+    left_forward_w = math_utils.quat_apply(foot_quat_w[:, 1, :], foot_forward)
+    right_yaw_w = torch.atan2(right_forward_w[:, 1], right_forward_w[:, 0])
+    left_yaw_w = torch.atan2(left_forward_w[:, 1], left_forward_w[:, 0])
+    foot_yaw_w = torch.stack((right_yaw_w, left_yaw_w), dim=1)
+
+    uninitialized = ~self.target_initialized
+    if uninitialized.any():
+      self.frozen_targets_w[uninitialized, :, :2] = foot_pos_w[uninitialized, :, :2]
+      self.frozen_targets_w[uninitialized, :, 2] = foot_yaw_w[uninitialized]
+>>>>>>> dev-biped-pp-alt
       self.support_steps_w[uninitialized, :, :2] = foot_pos_w[uninitialized, :, :2]
       self.support_steps_w[uninitialized, :, 2] = foot_yaw_w[uninitialized]
       self.target_initialized[uninitialized] = True
@@ -287,6 +312,7 @@ class LipStepCommand(CommandTerm):
       self.step_targets_w[left_ids, 1, :2] = plan.target_xy_w[left_ids]
       self.step_targets_w[left_ids, 1, 2] = plan.target_heading_w[left_ids, 0]
 
+<<<<<<< HEAD
     self.step_target_command[:, 0:3] = self.step_targets_w[:, 0, :]
     self.step_target_command[:, 3:6] = self.step_targets_w[:, 1, :]
 
@@ -327,6 +353,10 @@ class LipStepCommand(CommandTerm):
 
     total_mass = torch.clamp(mass.sum(dim=1), min=1.0e-6)
     return torch.sum(body_pos_w * mass, dim=1) / total_mass
+=======
+    self.step_target_command[:, 0:3] = self.frozen_targets_w[:, 0, :]
+    self.step_target_command[:, 3:6] = self.frozen_targets_w[:, 1, :]
+>>>>>>> dev-biped-pp-alt
 
   def _debug_vis_impl(self, visualizer) -> None:
     env_indices = visualizer.get_env_indices(self.num_envs)
@@ -395,3 +425,33 @@ class LipStepCommand(CommandTerm):
 
   def _update_metrics(self) -> None:
     pass
+
+  def _foot_contact(self) -> torch.Tensor:
+    sensor = self._env.scene[self.cfg.contact_sensor_name]
+    order = torch.tensor(
+      [sensor.primary_names.index(name) for name in self.cfg.foot_body_names],
+      device=self.device,
+      dtype=torch.long,
+    )
+    if sensor.data.force is not None:
+      force = sensor.data.force.index_select(1, order)
+      return torch.norm(force, dim=-1) > self.cfg.contact_threshold
+    assert sensor.data.found is not None
+    return sensor.data.found.index_select(1, order) > 0
+
+  def _compute_com_w(self) -> torch.Tensor:
+    body_pos_w = self.robot.data.body_link_pos_w
+    mass = self._body_mass.to(device=body_pos_w.device, dtype=body_pos_w.dtype)
+
+    if mass.ndim == 1:
+      if mass.shape[0] != body_pos_w.shape[1]:
+        mass = mass[-body_pos_w.shape[1] :]
+      mass = mass.view(1, -1, 1).expand(body_pos_w.shape[0], -1, -1)
+    else:
+      mass = mass.reshape(body_pos_w.shape[0], -1)
+      if mass.shape[1] != body_pos_w.shape[1]:
+        mass = mass[:, -body_pos_w.shape[1] :]
+      mass = mass.unsqueeze(-1)
+
+    total_mass = torch.clamp(mass.sum(dim=1), min=1.0e-6)
+    return torch.sum(body_pos_w * mass, dim=1) / total_mass
