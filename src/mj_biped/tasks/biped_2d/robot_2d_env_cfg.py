@@ -15,6 +15,7 @@ from mjlab.managers.observation_manager import (
   ObservationGroupCfg,
   ObservationTermCfg,
 )
+from mjlab.managers.metrics_manager import MetricsTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
@@ -207,6 +208,14 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     ),
   }
 
+  metrics = {
+    "max_forward_speed": MetricsTermCfg(
+      func=mdp.max_forward_speed,
+      params={"asset_cfg": _ROBOT_CFG},
+      reduce="last",
+    ),
+  }
+
   return ManagerBasedRlEnvCfg(
     scene=SceneCfg(
       terrain=TerrainEntityCfg(terrain_type="plane"),
@@ -219,6 +228,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     commands=commands,
     rewards=rewards,
     terminations=terminations,
+    metrics=metrics,
     viewer=ViewerConfig(
       origin_type=ViewerConfig.OriginType.ASSET_BODY,
       entity_name="robot_2d",

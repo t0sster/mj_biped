@@ -17,6 +17,8 @@ def test_robot_2d_train_cfg_uses_requested_env_count() -> None:
     "contact_schedule",
     "action_acc",
   }
+  assert set(cfg.metrics) == {"max_forward_speed"}
+  assert cfg.metrics["max_forward_speed"].reduce == "last"
   assert set(cfg.terminations) == {
     "time_out",
     "bad_orientation",
@@ -47,6 +49,7 @@ def test_biped_2d_train_cfg_uses_requested_env_count() -> None:
     "contact_schedule",
     "action_acc",
   }
+  assert cfg.metrics == {}
   assert set(cfg.terminations) == {
     "time_out",
     "bad_orientation",
