@@ -341,6 +341,18 @@ def make_bd_lip_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "contact_threshold": 0.1,
       },
     ),
+    "swing_clearance": RewardTermCfg(
+      func=mdp.swing_clearance_reward,
+      weight=1.5,
+      params={
+        "asset_cfg": feet_body_cfg,
+        "gait_command_name": "gait_command",
+        "velocity_command_name": "base_velocity",
+        "command_threshold": 0.02,
+        "clearance": 0.02,
+        "sigma": 0.15,
+      },
+    ),
     "base_height": RewardTermCfg(
       func=mdp.base_height_tracking_exp,
       weight=1.0,
