@@ -1,0 +1,2 @@
+"""Scripted motor capability tasks."""
+
