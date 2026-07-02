@@ -24,6 +24,16 @@ Edit `SQUAT_STAND_POSES` and `SquatStandTiming` in
 `src/optim/tasks/squat_stand.py` to change the target joint poses and phase
 durations.
 
+Run a scripted vertical jump attempt:
+
+```bash
+uv run optim-play --task jump_vertical
+```
+
+Edit `JUMP_VERTICAL_POSES` and `JumpVerticalTiming` in
+`src/optim/tasks/jump_vertical.py` to change crouch, extension, flight-pose
+targets and phase durations.
+
 Override target joint angles:
 
 ```bash

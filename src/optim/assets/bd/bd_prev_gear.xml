@@ -86,12 +86,12 @@
 
                         <body name="left_knee_pitch_link" pos="0 -0.015 -0.16">
                             <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
-                            <joint name="JL3_knee_pitch" axis="0 1 0" range="-1.57 1.57" armature="2.273892e-04" damping="1.126892e-03"/>
+                            <joint name="JL3_knee_pitch" axis="0 1 0" range="-3.14 1.57" armature="2.273892e-04" damping="1.126892e-03"/>
                             <geom class="visual" type="box" pos="0 0 -0.11" size="0.02 0.005 0.11"/>
 
                             <body name="left_ankle_pitch_link" pos="0 0 -0.22">
                                 <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
-                                <joint name="JL4_ankle_pitch" axis="0 -1 0" range="-0.785 0.785" armature="5.68473e-05" damping="2.81723e-04"/>
+                                <joint name="JL4_ankle_pitch" axis="0 -1 0" range="-1.57 0.785" armature="5.68473e-05" damping="2.81723e-04"/>
                                 <geom class="motor_J6006_visual" euler="1.57 0 0" pos="0 0.02 0"/>
                                 <geom class="motor_J6006_collision" euler="1.57 0 0" pos="0 0.02 0"/>
                                 <geom class="foot_capsule" rgba="0.2 0.3 0.7 1"/>
@@ -129,12 +129,12 @@
 
                         <body name="right_knee_pitch_link" pos="0 0.015 -0.16">
                             <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
-                            <joint name="JR3_knee_pitch" axis="0 -1 0" range="-1.57 1.57" armature="2.273892e-04" damping="1.126892e-03"/>
+                            <joint name="JR3_knee_pitch" axis="0 -1 0" range="-1.57 3.14" armature="2.273892e-04" damping="1.126892e-03"/>
                             <geom class="visual" type="box" pos="0 0 -0.11" size="0.02 0.005 0.11"/>
 
                             <body name="right_ankle_pitch_link" pos="0 0 -0.22">
                                 <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
-                                <joint name="JR4_ankle_pitch" axis="0 1 0" range="-0.785 0.785" armature="5.68473e-05" damping="2.81723e-04"/>
+                                <joint name="JR4_ankle_pitch" axis="0 1 0" range="-0.785 1.57" armature="5.68473e-05" damping="2.81723e-04"/>
                                 <geom class="motor_J6006_visual" euler="1.57 0 0" pos="0 -0.02 0"/>
                                 <geom class="motor_J6006_collision" euler="1.57 0 0" pos="0 -0.02 0"/>
                                 <geom class="foot_capsule" rgba="0.2 0.3 0.7 1"/>

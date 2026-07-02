@@ -13,10 +13,11 @@ from optim.core.config import ACTUATED_JOINT_NAMES, SimulationConfig, PDConfig
 from optim.core.metrics import MotorMetricsLogger
 from optim.core.model import load_model, new_data
 from optim.core.pd import PDController
+from optim.tasks.jump_vertical import JumpVerticalTask
 from optim.tasks.squat_stand import SquatStandTask
 from optim.tasks.stand import STAND_POSES, StandTask
 
-TASK_NAMES = ("stand", "squat_stand")
+TASK_NAMES = ("stand", "squat_stand", "jump_vertical")
 
 
 @dataclass(frozen=True)
@@ -136,7 +137,9 @@ def _build_task(args: argparse.Namespace):
     return StandTask(joint_targets=joint_targets)
   if args.joint:
     raise ValueError("--joint overrides are currently only supported for --task stand.")
-  return SquatStandTask()
+  if args.task == "squat_stand":
+    return SquatStandTask()
+  return JumpVerticalTask()
 
 
 def _task_duration(task) -> float:
