@@ -13,9 +13,9 @@ from optim.core.config import ACTUATED_JOINT_NAMES, SimulationConfig, PDConfig
 from optim.core.metrics import MotorMetricsLogger
 from optim.core.model import load_model, new_data
 from optim.core.pd import PDController
-from optim.tasks.jump_vertical import JumpVerticalTask
-from optim.tasks.squat_stand import SquatStandTask
-from optim.tasks.stand import STAND_POSES, StandTask
+from optim.tasks.scripted.jump_vertical import JumpVerticalTask
+from optim.tasks.scripted.squat_stand import SquatStandTask
+from optim.tasks.scripted.stand import STAND_POSES, StandTask
 
 TASK_NAMES = ("stand", "squat_stand", "jump_vertical")
 

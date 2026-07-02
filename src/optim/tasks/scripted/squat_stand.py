@@ -7,7 +7,7 @@ import numpy as np
 
 from optim.core.config import ACTUATED_JOINT_NAMES
 from optim.core.model import ModelContext
-from optim.tasks.stand import STAND_POSES, StandTask
+from optim.tasks.scripted.stand import STAND_POSES, StandTask
 
 
 SQUAT_STAND_POSES = {
