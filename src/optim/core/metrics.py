@@ -28,6 +28,8 @@ class MetricSummary:
 class MotorMetricsLogger:
   def __init__(self, context: ModelContext) -> None:
     self._context = context
+    self._left_foot_geoms = _body_geom_ids(context.model, "left_ankle_pitch_link")
+    self._right_foot_geoms = _body_geom_ids(context.model, "right_ankle_pitch_link")
     n = len(context.actuators)
     self._count = 0
     self._max_abs_motor_torque = np.zeros(n)
@@ -122,6 +124,8 @@ class MotorMetricsLogger:
       "q",
       "q_des",
       "q_error",
+      "left_foot_fz",
+      "right_foot_fz",
       "saturated",
     )
     with Path(path).open("w", newline="") as file:
@@ -136,6 +140,12 @@ class MotorMetricsLogger:
     saturated: np.ndarray,
   ) -> None:
     power = control.tau_joint * control.qd
+    left_foot_fz, right_foot_fz = _foot_contact_forces_z(
+      self._context.model,
+      data,
+      self._left_foot_geoms,
+      self._right_foot_geoms,
+    )
     for index, actuator in enumerate(self._context.actuators):
       self._samples.append({
         "time": float(data.time),
@@ -150,5 +160,41 @@ class MotorMetricsLogger:
         "q": float(control.q[index]),
         "q_des": float(control.q_des[index]),
         "q_error": float(control.q_des[index] - control.q[index]),
+        "left_foot_fz": left_foot_fz,
+        "right_foot_fz": right_foot_fz,
         "saturated": bool(saturated[index]),
       })
+
+
+def _body_geom_ids(model: mujoco.MjModel, body_name: str) -> set[int]:
+  body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+  if body_id < 0:
+    return set()
+  return {
+    geom_id
+    for geom_id in range(model.ngeom)
+    if int(model.geom_bodyid[geom_id]) == body_id
+  }
+
+
+def _foot_contact_forces_z(
+  model: mujoco.MjModel,
+  data: mujoco.MjData,
+  left_foot_geoms: set[int],
+  right_foot_geoms: set[int],
+) -> tuple[float, float]:
+  left_fz = 0.0
+  right_fz = 0.0
+  for contact_id in range(data.ncon):
+    contact = data.contact[contact_id]
+    geom_ids = {int(contact.geom1), int(contact.geom2)}
+    force = np.zeros(6)
+    mujoco.mj_contactForce(model, data, contact_id, force)
+    frame = contact.frame.reshape(3, 3)
+    world_force = frame.T @ force[:3]
+    fz = abs(float(world_force[2]))
+    if geom_ids & left_foot_geoms:
+      left_fz += fz
+    if geom_ids & right_foot_geoms:
+      right_fz += fz
+  return left_fz, right_fz

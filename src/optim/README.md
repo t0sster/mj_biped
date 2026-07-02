@@ -14,6 +14,16 @@ Run the first standing experiment:
 uv run optim-play --task stand --duration 2.0
 ```
 
+Run a scripted stand-to-crouch-to-stand transition:
+
+```bash
+uv run optim-play --task squat_stand
+```
+
+Edit `SQUAT_STAND_POSES` and `SquatStandTiming` in
+`src/optim/tasks/squat_stand.py` to change the target joint poses and phase
+durations.
+
 Override target joint angles:
 
 ```bash

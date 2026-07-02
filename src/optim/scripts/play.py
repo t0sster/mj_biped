@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 import time
@@ -12,22 +13,30 @@ from optim.core.config import ACTUATED_JOINT_NAMES, SimulationConfig, PDConfig
 from optim.core.metrics import MotorMetricsLogger
 from optim.core.model import load_model, new_data
 from optim.core.pd import PDController
+from optim.tasks.squat_stand import SquatStandTask
 from optim.tasks.stand import STAND_POSES, StandTask
+
+TASK_NAMES = ("stand", "squat_stand")
+
+
+@dataclass(frozen=True)
+class OutputPaths:
+  summary: Path | None = None
+  timeseries: Path | None = None
 
 
 def main() -> None:
   args = _parse_args()
-  joint_targets = _stand_pose(args.pose) | _parse_joint_targets(args.joint)
+  task = _build_task(args)
   cfg = SimulationConfig(
     model_path=args.model,
-    duration=args.duration,
+    duration=args.duration if args.duration is not None else _task_duration(task),
     timestep=args.timestep,
     pd=_pd_config(args),
   )
 
   context = load_model(cfg.model_path, timestep=cfg.timestep)
   data = new_data(context)
-  task = StandTask(joint_targets=joint_targets)
   controller = PDController(context, cfg.pd)
   steps = max(1, int(cfg.duration / context.model.opt.timestep))
   logger = MotorMetricsLogger(context)
@@ -75,7 +84,7 @@ def main() -> None:
 
 def _parse_args() -> argparse.Namespace:
   parser = argparse.ArgumentParser(description="Run optim motor capability tasks.")
-  parser.add_argument("--task", choices=("stand",), default="stand")
+  parser.add_argument("--task", choices=TASK_NAMES, default="stand")
   parser.add_argument("--pose", choices=tuple(STAND_POSES), default="neutral")
   parser.add_argument(
     "--model",
@@ -83,7 +92,7 @@ def _parse_args() -> argparse.Namespace:
     default=SimulationConfig.model_path,
     help="MJCF model path.",
   )
-  parser.add_argument("--duration", type=float, default=2.0)
+  parser.add_argument("--duration", type=float, default=None)
   parser.add_argument("--viewer", action="store_true", help="Open MuJoCo viewer.")
   parser.add_argument(
     "--loop",
@@ -121,6 +130,19 @@ def _parse_args() -> argparse.Namespace:
   return parser.parse_args()
 
 
+def _build_task(args: argparse.Namespace):
+  if args.task == "stand":
+    joint_targets = _stand_pose(args.pose) | _parse_joint_targets(args.joint)
+    return StandTask(joint_targets=joint_targets)
+  if args.joint:
+    raise ValueError("--joint overrides are currently only supported for --task stand.")
+  return SquatStandTask()
+
+
+def _task_duration(task) -> float:
+  return getattr(task, "duration", SimulationConfig.duration)
+
+
 def _pd_config(args: argparse.Namespace) -> PDConfig:
   defaults = PDConfig()
   return PDConfig(
@@ -129,17 +151,16 @@ def _pd_config(args: argparse.Namespace) -> PDConfig:
   )
 
 
-def _output_paths(args: argparse.Namespace) -> tuple[Path, Path] | None:
+def _output_paths(args: argparse.Namespace) -> OutputPaths | None:
+  if args.log:
+    run_dir = _default_run_dir(args.task)
+    return OutputPaths(
+      summary=args.output or run_dir / "summary.csv",
+      timeseries=args.timeseries_output or run_dir / "timeseries.csv",
+    )
   if args.output is not None or args.timeseries_output is not None:
-    summary_path = args.output or _default_run_dir(args.task) / "summary.csv"
-    timeseries_path = args.timeseries_output or summary_path.with_name("timeseries.csv")
-    return summary_path, timeseries_path
-
-  if not args.log:
-    return None
-
-  run_dir = _default_run_dir(args.task)
-  return run_dir / "summary.csv", run_dir / "timeseries.csv"
+    return OutputPaths(summary=args.output, timeseries=args.timeseries_output)
+  return None
 
 
 def _default_run_dir(task_name: str) -> Path:
@@ -147,14 +168,15 @@ def _default_run_dir(task_name: str) -> Path:
   return Path("logs") / "optim" / task_name / timestamp
 
 
-def _write_outputs(logger: MotorMetricsLogger, paths: tuple[Path, Path]) -> None:
-  summary_path, timeseries_path = paths
-  summary_path.parent.mkdir(parents=True, exist_ok=True)
-  timeseries_path.parent.mkdir(parents=True, exist_ok=True)
-  logger.write_csv(summary_path)
-  logger.write_timeseries_csv(timeseries_path)
-  print(f"wrote summary: {summary_path}")
-  print(f"wrote timeseries: {timeseries_path}")
+def _write_outputs(logger: MotorMetricsLogger, paths: OutputPaths) -> None:
+  if paths.summary is not None:
+    paths.summary.parent.mkdir(parents=True, exist_ok=True)
+    logger.write_csv(paths.summary)
+    print(f"wrote summary: {paths.summary}")
+  if paths.timeseries is not None:
+    paths.timeseries.parent.mkdir(parents=True, exist_ok=True)
+    logger.write_timeseries_csv(paths.timeseries)
+    print(f"wrote timeseries: {paths.timeseries}")
 
 
 def _step(context, data, task, controller, logger):

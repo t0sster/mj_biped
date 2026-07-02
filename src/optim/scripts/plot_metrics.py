@@ -16,11 +16,26 @@ MOTOR_PAIRS = (
   ("ML4_ankle_pitch", "MR4_ankle_pitch"),
 )
 
+PLOT_VALUES = (
+  "tau_joint",
+  "joint_velocity",
+  "q",
+  "tau_motor",
+  "tau_motor_cmd",
+  "motor_speed",
+  "power",
+  "q_error",
+  "contact_fz",
+)
+
 
 def main() -> None:
   args = _parse_args()
   samples = _load_samples(args.input)
-  _plot_pairs(samples, args.value, args.input, args.save)
+  if args.value == "contact_fz":
+    _plot_contact_force(samples, args.input, args.save)
+  else:
+    _plot_pairs(samples, args.value, args.input, args.save)
   if not args.no_show:
     plt.show()
 
@@ -30,15 +45,8 @@ def _parse_args() -> argparse.Namespace:
   parser.add_argument("--input", type=Path, required=True, help="Time-series CSV.")
   parser.add_argument(
     "--value",
-    choices=(
-      "tau_motor",
-      "tau_motor_cmd",
-      "tau_joint",
-      "motor_speed",
-      "power",
-      "q_error",
-    ),
-    default="tau_motor",
+    choices=PLOT_VALUES,
+    default="tau_joint",
     help="Metric column to plot.",
   )
   parser.add_argument("--save", type=Path, default=None, help="Save figure to file.")
@@ -84,6 +92,37 @@ def _plot_pairs(
     axis.grid(True, alpha=0.25)
 
   axes[-1].set_xlabel("time, s")
+  fig.tight_layout()
+  if save_path is not None:
+    fig.savefig(save_path, dpi=160)
+
+
+def _plot_contact_force(
+  samples: dict[str, dict[str, list[float]]],
+  source: Path,
+  save_path: Path | None,
+) -> None:
+  first_actuator = next(iter(samples.values()), None)
+  if first_actuator is None:
+    raise ValueError(f"No samples found in {source}")
+
+  fig, axis = plt.subplots(1, 1, figsize=(12, 5))
+  fig.suptitle(f"foot contact force z from {source}")
+  axis.plot(
+    first_actuator["time"],
+    first_actuator["left_foot_fz"],
+    label="left_foot_fz",
+  )
+  axis.plot(
+    first_actuator["time"],
+    first_actuator["right_foot_fz"],
+    label="right_foot_fz",
+  )
+  axis.axhline(0.0, color="black", linewidth=0.8, alpha=0.4)
+  axis.set_xlabel("time, s")
+  axis.set_ylabel("contact force z, N")
+  axis.legend(loc="upper right")
+  axis.grid(True, alpha=0.25)
   fig.tight_layout()
   if save_path is not None:
     fig.savefig(save_path, dpi=160)
