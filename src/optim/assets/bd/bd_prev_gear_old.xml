@@ -1,6 +1,5 @@
 <mujoco model="BD-prev-gear">
     <compiler angle="radian" meshdir="meshes" autolimits="true"/>
-    <option timestep="0.0005" solver="Newton" integrator="RK4"/>
 
     <default>
         <default class="BD-prims">
@@ -14,7 +13,7 @@
             </default>
             
             <default class="foot_capsule">
-                <geom type="capsule" pos="0 0 0" size="0.02 0.06" contype="1" conaffinity="1" friction="1.0 0.005 0.0001" condim="4" rgba="1 1 1 1" quat="0.7071 0 0.7071 0" />
+                <geom type="capsule" pos="0.015 0 -0.055" size="0.02 0.06" contype="1" conaffinity="1" friction="1.0 0.005 0.0001" condim="4" rgba="1 1 1 1" quat="0.7071 0 0.7071 0" />
             </default>
 
             <default class="motor_J8006_visual">
@@ -39,8 +38,7 @@
     </asset>
 
     <worldbody>
-
-        <geom name="floor" pos="0 0 -0.6" size="0 0 0.05" type="plane" material="grid" condim="3" friction="0.95 0.005 0.0001"/>
+        <!-- <geom name="floor" pos="0 0 -0.6" size="0 0 0.05" type="plane" material="grid" condim="3" friction="0.95 0.005 0.0001"/> -->
 
         <body name="pelvis" pos="0 0 0" childclass="BD-prims">
             <light pos="0 0 2" mode="trackcom" castshadow="false"/>
@@ -60,92 +58,86 @@
                 </body>
             </body>
 
-            <body name="left_hip_pitch_motor" pos="0 0.08 0">
-                <geom class="motor_J8006_visual"  euler="-1.57 0 0"/>
-                <geom class="motor_J8006_collision"  euler="-1.57 0 0"/>
-                <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
-            </body>
             <body name="left_hip_pitch_link" pos="0 0.08 0">
                 <joint name="JL0_hip_pitch" axis="0 1 0" range="-1.57 1.57" armature="5.68473e-05" damping="2.81723e-04"/>
-                <!-- <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/> -->
-                <geom class="motor_J8006_visual" pos="0 0.08 0" euler="0 1.57 0"/>
-                <geom class="motor_J8006_collision" pos="0 0.08 0" euler="0 1.57 0"/>
-                <inertial pos="0 0.08 0" mass="0.55" diaginertia="0.0007 0.001 0.001"/>
+                <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
+                <geom class="motor_J8006_visual" euler="-1.57 0 0"/>
+                <geom class="motor_J8006_collision" euler="-1.57 0 0"/>
                 
                 <body name="left_hip_roll_link" pos="0 0.08 0">
+                    <inertial pos="0 0 0" mass="0.55" diaginertia="0.0007 0.001 0.001"/>
                     <joint name="JL1_hip_roll" axis="1 0 0" range="-0.785 1.57" armature="5.68473e-05" damping="2.81723e-04"/>
+                    <geom class="motor_J8006_visual" euler="0 1.57 0"/>
+                    <geom class="motor_J8006_collision" euler="0 1.57 0"/>
                     <geom class="visual" type="box" pos="0 0 -0.05" size="0.01 0.03 0.05"/>
-                    <geom class="motor_J6006_visual" pos="0 0 -0.1" euler="3.14 0 0"/>
-                    <geom class="motor_J6006_collision" pos="0 0 -0.1" euler="3.14 0 0"/>
-                    <inertial pos="0 0 -0.1" mass="0.55" diaginertia="0.001 0.001 0.0007"/>
 
                     <body name="left_thigh_yaw_link" pos="0 0 -0.1">
+                        <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.001 0.0007"/>
                         <joint name="JL2_thigh_yaw" axis="0 0 -1" range="-1.57 1.57" armature="5.68473e-05" damping="2.81723e-04"/>
+                        <geom class="motor_J6006_visual" euler="3.14 0 0"/>
+                        <geom class="motor_J6006_collision" euler="3.14 0 0"/>
                         <geom class="visual" type="box" pos="0 0 -0.08" size="0.03 0.005 0.08" rgba="0.2 0.2 0.8 1"/>
                         <geom class="visual" type="box" pos="0 -0.025 -0.1" size="0.02 0.005 0.08" rgba="0.2 0.2 0.8 1"/>
-                        <geom class="visual" type="cylinder" pos="0 -0.005 -0.08" size="0.015 0.005" euler="1.57 0 0" rgba="0.8 0.2 0.2 1"/>
-                        <geom class="visual" type="cylinder" pos="0 -0.005 -0.16" size="0.03 0.005" euler="1.57 0 0" rgba="0.8 0.2 0.2 1"/>
+
                         <geom class="motor_J8006_visual" euler="-1.57 0 0" pos="0 0.02 -0.08"/>
                         <geom class="motor_J8006_collision" euler="-1.57 0 0" pos="0 0.02 -0.08"/>
-                        <inertial pos="0 0.02 -0.08" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
-                        
+                        <geom class="visual" type="cylinder" pos="0 -0.005 -0.08" size="0.015 0.005" euler="1.57 0 0" rgba="0.8 0.2 0.2 1"/>
+                        <geom class="visual" type="cylinder" pos="0 -0.005 -0.16" size="0.03 0.005" euler="1.57 0 0" rgba="0.8 0.2 0.2 1"/>
+
                         <body name="left_knee_pitch_link" pos="0 -0.015 -0.16">
-                            <joint name="JL3_knee_pitch" axis="0 -1 0" range="-1.57 2.62" armature="5.68473e-05" damping="2.81723e-04"/>
+                            <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
+                            <joint name="JL3_knee_pitch" axis="0 1 0" range="-3.14 1.57" armature="2.273892e-04" damping="1.126892e-03"/>
                             <geom class="visual" type="box" pos="0 0 -0.11" size="0.02 0.005 0.11"/>
-                            <geom class="motor_J6006_visual" euler="1.57 0 0" pos="0 0.02 -0.22"/>
-                            <geom class="motor_J6006_collision" euler="1.57 0 0" pos="0 0.02 -0.22"/>
-                            <inertial pos="0 0.02 -0.22" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
 
                             <body name="left_ankle_pitch_link" pos="0 0 -0.22">
+                                <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
                                 <joint name="JL4_ankle_pitch" axis="0 -1 0" range="-1.57 0.785" armature="5.68473e-05" damping="2.81723e-04"/>
-                                <geom class="foot_capsule" pos="0.015 0 -0.055" rgba="0.2 0.3 0.7 1"/>
-                                <inertial pos="0.015 0 -0.055" mass="0.2" diaginertia="0.0001 0.0005 0.0005"/>
+                                <geom class="motor_J6006_visual" euler="1.57 0 0" pos="0 0.02 0"/>
+                                <geom class="motor_J6006_collision" euler="1.57 0 0" pos="0 0.02 0"/>
+                                <geom class="foot_capsule" rgba="0.2 0.3 0.7 1"/>
                             </body>
                         </body>
                     </body>
                 </body>
             </body>
 
-            <body name="right_hip_pitch_motor" pos="0 -0.08 0">
-                <geom class="motor_J8006_visual"  euler="-1.57 0 0"/>
-                <geom class="motor_J8006_collision"  euler="-1.57 0 0"/>
-                <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
-            </body>
             <body name="right_hip_pitch_link" pos="0 -0.08 0">
                 <joint name="JR0_hip_pitch" axis="0 -1 0" range="-1.57 1.57" armature="5.68473e-05" damping="2.81723e-04"/>
-                <!-- <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/> -->
-                <geom class="motor_J8006_visual" euler="0 1.57 0" pos="0 -0.08 0"/>
-                <geom class="motor_J8006_collision" euler="0 1.57 0" pos="0 -0.08 0"/>
-                <inertial pos="0 -0.08 0" mass="0.55" diaginertia="0.0007 0.001 0.001"/>
+                <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
+                <geom class="motor_J8006_visual" euler="1.57 0 0"/>
+                <geom class="motor_J8006_collision" euler="1.57 0 0"/>
 
                 <body name="right_hip_roll_link" pos="0 -0.08 0">
+                    <inertial pos="0 0 0" mass="0.55" diaginertia="0.0007 0.001 0.001"/>
                     <joint name="JR1_hip_roll" axis="1 0 0" range="-0.785 1.57" armature="5.68473e-05" damping="2.81723e-04"/>
+                    <geom class="motor_J8006_visual" euler="0 1.57 0"/>
+                    <geom class="motor_J8006_collision" euler="0 1.57 0"/>
                     <geom class="visual" type="box" pos="0 0 -0.05" size="0.01 0.03 0.05"/>
-                    <geom class="motor_J6006_visual" pos="0 0 -0.1" euler="3.14 0 0"/>
-                    <geom class="motor_J6006_collision" pos="0 0 -0.1" euler="3.14 0 0"/>
-                    <inertial pos="0 0 -0.1" mass="0.55" diaginertia="0.001 0.001 0.0007"/>
 
                     <body name="right_thigh_yaw_link" pos="0 0 -0.1">
+                        <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.001 0.0007"/>
                         <joint name="JR2_thigh_yaw" axis="0 0 -1" range="-1.57 1.57" armature="5.68473e-05" damping="2.81723e-04"/>
+                        <geom class="motor_J6006_visual" euler="3.14 0 0"/>
+                        <geom class="motor_J6006_collision" euler="3.14 0 0"/>
                         <geom class="visual" type="box" pos="0 0 -0.08" size="0.03 0.005 0.08" rgba="0.2 0.2 0.8 1"/>
-                        <geom class="visual" type="box" pos="0 0.025 -0.1" size="0.02 0.005 0.08" rgba="0.2 0.2 0.8 1"/>                        
-                        <geom class="visual" type="cylinder" pos="0 0.005 -0.08" size="0.015 0.005" euler="1.57 0 0" rgba="0.8 0.2 0.2 1"/>
-                        <geom class="visual" type="cylinder" pos="0 0.005 -0.16" size="0.03 0.005" euler="1.57 0 0" rgba="0.8 0.2 0.2 1"/>
+                        <geom class="visual" type="box" pos="0 0.025 -0.1" size="0.02 0.005 0.08" rgba="0.2 0.2 0.8 1"/>
+
                         <geom class="motor_J8006_visual" euler="-1.57 0 0" pos="0 -0.02 -0.08"/>
                         <geom class="motor_J8006_collision" euler="-1.57 0 0" pos="0 -0.02 -0.08"/>
-                        <inertial pos="0 -0.02 -0.08" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
+                        <geom class="visual" type="cylinder" pos="0 0.005 -0.08" size="0.015 0.005" euler="1.57 0 0" rgba="0.8 0.2 0.2 1"/>
+                        <geom class="visual" type="cylinder" pos="0 0.005 -0.16" size="0.03 0.005" euler="1.57 0 0" rgba="0.8 0.2 0.2 1"/>
 
                         <body name="right_knee_pitch_link" pos="0 0.015 -0.16">
-                            <joint name="JR3_knee_pitch" axis="0 1 0" range="-2.62 1.57" armature="5.68473e-05" damping="2.81723e-04"/>
+                            <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
+                            <joint name="JR3_knee_pitch" axis="0 -1 0" range="-1.57 3.14" armature="2.273892e-04" damping="1.126892e-03"/>
                             <geom class="visual" type="box" pos="0 0 -0.11" size="0.02 0.005 0.11"/>
-                            <geom class="motor_J6006_visual" pos="0 -0.02 -0.22" euler="1.57 0 0"/>
-                            <geom class="motor_J6006_collision" pos="0 -0.02 -0.22" euler="1.57 0 0"/>
-                            <inertial pos="0 -0.02 -0.22" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
 
                             <body name="right_ankle_pitch_link" pos="0 0 -0.22">
-                                <joint name="JR4_ankle_pitch" axis="0 1 0" range="-0.785 1.31" armature="5.68473e-05" damping="2.81723e-04"/>
-                                <geom class="foot_capsule" pos="0.015 0 -0.055" rgba="0.2 0.3 0.7 1"/>
-                                <inertial pos="0.015 0 -0.055" mass="0.2" diaginertia="0.0001 0.0005 0.0005"/>
+                                <inertial pos="0 0 0" mass="0.55" diaginertia="0.001 0.0007 0.001"/>
+                                <joint name="JR4_ankle_pitch" axis="0 1 0" range="-0.785 1.57" armature="5.68473e-05" damping="2.81723e-04"/>
+                                <geom class="motor_J6006_visual" euler="1.57 0 0" pos="0 -0.02 0"/>
+                                <geom class="motor_J6006_collision" euler="1.57 0 0" pos="0 -0.02 0"/>
+                                <geom class="foot_capsule" rgba="0.2 0.3 0.7 1"/>
                             </body>
                         </body>
                     </body>
