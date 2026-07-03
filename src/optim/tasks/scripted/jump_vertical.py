@@ -16,27 +16,27 @@ JUMP_VERTICAL_POSES = {
     "JL0_hip_pitch": 0.9,
     "JL1_hip_roll": 0.0,
     "JL2_thigh_yaw": 0.0,
-    "JL3_knee_pitch": -2.0,
+    "JL3_knee_pitch": 2.0,
     "JL4_ankle_pitch": -1.1,
 
     "JR0_hip_pitch": -0.9,
     "JR1_hip_roll": 0.0,
     "JR2_thigh_yaw": 0.0,
-    "JR3_knee_pitch": 2.0,
+    "JR3_knee_pitch": -2.0,
     "JR4_ankle_pitch": 1.1,
   },
   "flight": {
     "JL0_hip_pitch": 0.2,
     "JL1_hip_roll": 0.0,
     "JL2_thigh_yaw": 0.0,
-    "JL3_knee_pitch": -0.4,
-    "JL4_ankle_pitch": -0.1,
+    "JL3_knee_pitch": 0.0,
+    "JL4_ankle_pitch": -0.4,
 
     "JR0_hip_pitch": -0.2,
     "JR1_hip_roll": 0.0,
     "JR2_thigh_yaw": 0.0,
-    "JR3_knee_pitch": 0.4,
-    "JR4_ankle_pitch": 0.1,
+    "JR3_knee_pitch": -0.0,
+    "JR4_ankle_pitch": 0.4,
   },
 }
 

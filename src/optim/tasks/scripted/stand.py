@@ -15,13 +15,13 @@ STAND_POSES = {
     "JL0_hip_pitch": 0.5,
     "JL1_hip_roll": 0.0,
     "JL2_thigh_yaw": 0.0,
-    "JL3_knee_pitch": -1.1,
+    "JL3_knee_pitch": 1.1,
     "JL4_ankle_pitch": -0.6,
 
     "JR0_hip_pitch": -0.5,
     "JR1_hip_roll": 0.0,
     "JR2_thigh_yaw": 0.0,
-    "JR3_knee_pitch": 1.1,
+    "JR3_knee_pitch": -1.1,
     "JR4_ankle_pitch": 0.6,
   },
 }
