@@ -37,8 +37,8 @@ DEFAULT_MODEL_PATH = (
 
 @dataclass(frozen=True)
 class PDConfig:
-  kp: float = 30.0
-  kd: float = 2.5
+  kp: float = 15.0
+  kd: float = 1.5
 
 
 @dataclass(frozen=True)
