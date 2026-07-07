@@ -4,48 +4,7 @@ from dataclasses import dataclass
 
 import torch
 from mjlab.managers.command_manager import CommandTerm, CommandTermCfg
-
-
-@dataclass(kw_only=True)
-class UniformVelocityCommandCfg(CommandTermCfg):
-  @dataclass
-  class Ranges:
-    lin_vel_x: tuple[float, float] = (0.0, 0.8)
-    lin_vel_y: tuple[float, float] = (-0.2, 0.2)
-    yaw_rate: tuple[float, float] = (-0.5, 0.5)
-
-  ranges: Ranges
-
-  def build(self, env) -> UniformVelocityCommand:
-    return UniformVelocityCommand(self, env)
-
-
-class UniformVelocityCommand(CommandTerm):
-  cfg: UniformVelocityCommandCfg
-
-  def __init__(self, cfg: UniformVelocityCommandCfg, env) -> None:
-    super().__init__(cfg, env)
-    self._command = torch.zeros(self.num_envs, 3, device=self.device)
-
-  @property
-  def command(self) -> torch.Tensor:
-    return self._command
-
-  def _update_metrics(self) -> None:
-    pass
-
-  def _resample_command(self, env_ids: torch.Tensor) -> None:
-    ranges = self.cfg.ranges
-    self._command[env_ids, 0] = self._command[env_ids, 0].uniform_(
-      *ranges.lin_vel_x
-    )
-    self._command[env_ids, 1] = self._command[env_ids, 1].uniform_(
-      *ranges.lin_vel_y
-    )
-    self._command[env_ids, 2] = self._command[env_ids, 2].uniform_(*ranges.yaw_rate)
-
-  def _update_command(self) -> None:
-    pass
+from mjlab.tasks.velocity.mdp.velocity_command import UniformVelocityCommandCfg
 
 
 @dataclass(kw_only=True)

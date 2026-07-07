@@ -19,7 +19,9 @@ from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.scene import SceneCfg
+from mjlab.sensor import ContactMatch, ContactSensorCfg
 from mjlab.sim import MujocoCfg, SimulationCfg
+from mjlab.tasks.velocity import mdp as velocity_mdp
 from mjlab.terrains import TerrainEntityCfg
 from mjlab.viewer import ViewerConfig
 
@@ -78,6 +80,8 @@ _TERRAIN_CFG = SceneEntityCfg("terrain", geom_names=("terrain",))
 _ROBOT_ACTUATOR_CFG = SceneEntityCfg("bd", actuator_names=_XML_ACTUATOR_NAMES)
 
 _PLAY_NUM_ENVS = 1
+_DECIMATION = 4
+_FEET_CONTACT_SENSOR = "feet_ground_contact"
 
 
 def _get_spec() -> mujoco.MjSpec:
@@ -98,12 +102,13 @@ _BD_INIT = EntityCfg.InitialStateCfg(
     "JL0_hip_pitch": 0.5,
     "JL1_hip_roll": 0.0,
     "JL2_thigh_yaw": 0.0,
-    "JL3_knee_pitch": -1.1,
+    "JL3_knee_pitch": 1.1,
     "JL4_ankle_pitch": -0.6,
+
     "JR0_hip_pitch": -0.5,
     "JR1_hip_roll": 0.0,
     "JR2_thigh_yaw": 0.0,
-    "JR3_knee_pitch": 1.1,
+    "JR3_knee_pitch": -1.1,
     "JR4_ankle_pitch": 0.6,
   },
   joint_vel={".*": 0.0},
@@ -152,83 +157,141 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
 
   observations = {
     "actor": ObservationGroupCfg(actor_terms, enable_corruption=True),
-    "critic": ObservationGroupCfg({**actor_terms}),
+    "critic": ObservationGroupCfg({
+      **actor_terms,
+      "foot_air_time": ObservationTermCfg(
+        func=velocity_mdp.foot_air_time,
+        params={"sensor_name": _FEET_CONTACT_SENSOR},
+      ),
+      "foot_contact_forces": ObservationTermCfg(
+        func=velocity_mdp.foot_contact_forces,
+        params={"sensor_name": _FEET_CONTACT_SENSOR},
+      ),
+    }),
   }
 
   actions: dict[str, ActionTermCfg] = {
     "joint_pos": mdp.JointPositionToMotorEffortActionCfg(
       entity_name="bd",
       actuator_names=_ACTUATED_JOINT_NAMES,
-      scale=0.25,
+      scale=0.5,
       use_default_offset=True,
       preserve_order=True,
       stiffness={
-        "JL0_hip_pitch": 30.0,
-        "JL1_hip_roll": 30.0,
-        "JL2_thigh_yaw": 25.0,
-        "JL3_knee_pitch": 30.0,
-        "JL4_ankle_pitch": 15.0,
+        "JL0_hip_pitch": 25.0,
+        "JL1_hip_roll": 25.0,
+        "JL2_thigh_yaw": 20.0,
+        "JL3_knee_pitch": 25.0,
+        "JL4_ankle_pitch": 20.0,
 
-        "JR0_hip_pitch": 30.0,
-        "JR1_hip_roll": 30.0,
-        "JR2_thigh_yaw": 25.0,
-        "JR3_knee_pitch": 30.0,
-        "JR4_ankle_pitch": 15.0,
+        "JR0_hip_pitch": 25.0,
+        "JR1_hip_roll": 25.0,
+        "JR2_thigh_yaw": 20.0,
+        "JR3_knee_pitch": 25.0,
+        "JR4_ankle_pitch": 20.0,
       },
       damping={
-        "JL0_hip_pitch": 3.0,
-        "JL1_hip_roll": 3.0,
-        "JL2_thigh_yaw": 2.5,
-        "JL3_knee_pitch": 3.0,
-        "JL4_ankle_pitch": 1.5,
+        "JL0_hip_pitch": 2.5,
+        "JL1_hip_roll": 2.5,
+        "JL2_thigh_yaw": 2.0,
+        "JL3_knee_pitch": 2.5,
+        "JL4_ankle_pitch": 2.0,
 
-        "JR0_hip_pitch": 3.0,
-        "JR1_hip_roll": 3.0,
-        "JR2_thigh_yaw": 2.5,
-        "JR3_knee_pitch": 3.0,
-        "JR4_ankle_pitch": 1.5,
+        "JR0_hip_pitch": 2.5,
+        "JR1_hip_roll": 2.5,
+        "JR2_thigh_yaw": 2.0,
+        "JR3_knee_pitch": 2.5,
+        "JR4_ankle_pitch": 2.0,
       },
     ),
   }
 
   commands: dict[str, CommandTermCfg] = {
     "velocity": mdp.UniformVelocityCommandCfg(
+      entity_name="bd",
       resampling_time_range=(5.0, 10.0),
       ranges=mdp.UniformVelocityCommandCfg.Ranges(
         lin_vel_x=(-0.3, 0.3),
         lin_vel_y=(-0.2, 0.2),
-        yaw_rate=(-0.5, 0.5),
+        ang_vel_z=(-0.5, 0.5),
       ),
     ),
     "gait": mdp.UniformGaitCommandCfg(
       resampling_time_range=(1.0e6, 1.0e6),
       ranges=mdp.UniformGaitCommandCfg.Ranges(
         frequencies=(0.5, 1.0),
-        duty_cycle=(0.5, 0.5),
+        duty_cycle=(0.6, 0.6),
       ),
     ),
   }
 
   rewards = {
     "track_lin_vel_xy": RewardTermCfg(
-      func=mdp.track_lin_vel_xy_exp,
-      weight=1.0,
-      params={"asset_cfg": _ROBOT_CFG, "command_name": "velocity", "sigma": 0.15},
+      func=velocity_mdp.track_linear_velocity,
+      weight=1.5,
+      params={
+        "asset_cfg": _ROBOT_CFG,
+        "command_name": "velocity",
+        "std": math.sqrt(0.25),
+      },
     ),
     "track_ang_vel_z": RewardTermCfg(
-      func=mdp.track_ang_vel_z_exp,
-      weight=0.5,
-      params={"asset_cfg": _ROBOT_CFG, "command_name": "velocity", "sigma": 0.25},
-    ),
-    "contact_schedule": RewardTermCfg(
-      func=mdp.contact_schedule,
+      func=velocity_mdp.track_angular_velocity,
       weight=1.0,
       params={
-        "asset_cfg": _FEET_CONTACT_CFG,
-        "terrain_cfg": _TERRAIN_CFG,
-        "command_name": "gait",
-        "sigma": 0.15,
+        "asset_cfg": _ROBOT_CFG,
+        "command_name": "velocity",
+        "std": math.sqrt(0.25),
       },
+    ),
+    "gait_swing_foot_force": RewardTermCfg(
+      func=mdp.gait_swing_foot_force,
+      weight=-2.0,
+      params={
+        "command_name": "gait",
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "force_scale": 50.0,
+      },
+    ),
+    "gait_stance_foot_velocity": RewardTermCfg(
+      func=mdp.gait_stance_foot_velocity,
+      weight=-1.0,
+      params={
+        "asset_cfg": _FEET_CONTACT_CFG,
+        "command_name": "gait",
+      },
+    ),
+    "feet_air_time": RewardTermCfg(
+      func=mdp.feet_air_time_positive_biped,
+      weight=0.5,
+      params={
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "command_name": "velocity",
+        "threshold": 0.5,
+        "command_threshold": 0.05,
+      },
+    ),
+    "soft_landing": RewardTermCfg(
+      func=velocity_mdp.soft_landing,
+      weight=-5.0e-3,
+      params={
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "command_name": "velocity",
+        "command_threshold": 0.05,
+      },
+    ),
+    "foot_contact_force": RewardTermCfg(
+      func=mdp.feet_contact_forces,
+      weight=-2.0e-4,
+      params={
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "max_force": 80.0,
+      },
+    ),
+    "base_lin_vel_z": RewardTermCfg(
+      func=mdp.base_lin_vel_z_l2,
+      weight=-1.0,
+      params={"asset_cfg": _ROBOT_CFG},
     ),
     "joint_torque": RewardTermCfg(
       func=env_mdp.joint_torques_l2,
@@ -258,7 +321,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     "time_out": TerminationTermCfg(func=env_mdp.time_out, time_out=True),
     "root_height": TerminationTermCfg(
       func=env_mdp.root_height_below_minimum,
-      params={"minimum_height": 0.12, "asset_cfg": _ROBOT_CFG},
+      params={"minimum_height": 0.2, "asset_cfg": _ROBOT_CFG},
     ),
     "bad_orientation": TerminationTermCfg(
       func=mdp.bad_orientation,
@@ -282,6 +345,21 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     scene=SceneCfg(
       terrain=TerrainEntityCfg(terrain_type="plane"),
       entities={"bd": _get_bd_cfg()},
+      sensors=(
+        ContactSensorCfg(
+          name=_FEET_CONTACT_SENSOR,
+          primary=ContactMatch(
+            mode="body",
+            pattern=("left_ankle_pitch_link", "right_ankle_pitch_link"),
+            entity="bd",
+          ),
+          secondary=ContactMatch(mode="geom", pattern="terrain"),
+          fields=("found", "force"),
+          reduce="netforce",
+          track_air_time=True,
+          history_length=_DECIMATION,
+        ),
+      ),
       num_envs=num_envs,
       env_spacing=2.0,
     ),
@@ -300,7 +378,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
       azimuth=90.0,
     ),
     sim=SimulationCfg(mujoco=MujocoCfg(timestep=0.005)),
-    decimation=4,
+    decimation=_DECIMATION,
     episode_length_s=20.0,
   )
 
