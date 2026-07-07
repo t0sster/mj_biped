@@ -23,6 +23,7 @@ dev = [
 mj-biped = "mj_biped:main"
 mj-biped-export-policy = "mj_biped.controller.policy_exporter:main"
 optim-play = "optim.scripts.play:main"
+optim-play-bd-checkpoint = "optim.scripts.play_bd_checkpoint:main"
 optim-plot = "optim.scripts.plot_metrics:main"
 
 [project.entry-points."mjlab.tasks"]
