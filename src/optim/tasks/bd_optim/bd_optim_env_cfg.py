@@ -72,7 +72,7 @@ _ROBOT_CFG = SceneEntityCfg("bd", joint_names=_BD_JOINT_NAMES)
 _BASE_CONTACT_CFG = SceneEntityCfg("bd", body_names=("pelvis", "head"))
 _FEET_CONTACT_CFG = SceneEntityCfg(
   "bd",
-  body_names=("left_ankle_pitch_link", "right_ankle_pitch_link"),
+  body_names=("left_foot", "right_foot"),
   preserve_order=True,
 )
 _TERRAIN_CFG = SceneEntityCfg("terrain", geom_names=("terrain",))
@@ -210,8 +210,11 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     "velocity": mdp.UniformVelocityCommandCfg(
       entity_name="bd",
       resampling_time_range=(5.0, 10.0),
+      rel_standing_envs=0.15,
+      rel_forward_envs=0.5,
+      heading_command=False,
       ranges=mdp.UniformVelocityCommandCfg.Ranges(
-        lin_vel_x=(-0.3, 0.3),
+        lin_vel_x=(-0.2, 0.4),
         lin_vel_y=(-0.2, 0.2),
         ang_vel_z=(-0.5, 0.5),
       ),
@@ -219,8 +222,8 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     "gait": mdp.UniformGaitCommandCfg(
       resampling_time_range=(1.0e6, 1.0e6),
       ranges=mdp.UniformGaitCommandCfg.Ranges(
-        frequencies=(0.5, 1.0),
-        duty_cycle=(0.6, 0.6),
+        frequencies=(0.75, 1.25),
+        duty_cycle=(0.60, 0.60),
       ),
     ),
   }
@@ -244,9 +247,36 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
         "std": math.sqrt(0.25),
       },
     ),
+    "posture": RewardTermCfg(
+      func=velocity_mdp.variable_posture,
+      weight=0.2,
+      params={
+        "asset_cfg": _ROBOT_CFG,
+        "command_name": "velocity",
+        "std_standing": {
+          ".*": math.sqrt(0.15),
+        },
+        "std_walking": {
+          ".*hip_pitch": math.sqrt(0.5),
+          ".*knee_pitch": math.sqrt(0.5),
+          ".*ankle_pitch": math.sqrt(0.35),
+          ".*hip_roll": math.sqrt(0.10),
+          ".*thigh_yaw": math.sqrt(0.10),
+        },
+        "std_running": {
+          ".*hip_pitch": math.sqrt(0.5),
+          ".*knee_pitch": math.sqrt(0.5),
+          ".*ankle_pitch": math.sqrt(0.35),
+          ".*hip_roll": math.sqrt(0.20),
+          ".*thigh_yaw": math.sqrt(0.20),
+        },
+        "walking_threshold": 0.02,
+        "running_threshold": 0.2,
+      },
+    ),
     "gait_swing_foot_force": RewardTermCfg(
       func=mdp.gait_swing_foot_force,
-      weight=-2.0,
+      weight=-0.5,
       params={
         "command_name": "gait",
         "sensor_name": _FEET_CONTACT_SENSOR,
@@ -255,7 +285,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     ),
     "gait_stance_foot_velocity": RewardTermCfg(
       func=mdp.gait_stance_foot_velocity,
-      weight=-1.0,
+      weight=-0.5,
       params={
         "asset_cfg": _FEET_CONTACT_CFG,
         "command_name": "gait",
@@ -267,7 +297,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
       params={
         "sensor_name": _FEET_CONTACT_SENSOR,
         "command_name": "velocity",
-        "threshold": 0.5,
+        "threshold": 0.25,
         "command_threshold": 0.05,
       },
     ),
@@ -290,13 +320,18 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     ),
     "base_lin_vel_z": RewardTermCfg(
       func=mdp.base_lin_vel_z_l2,
-      weight=-1.0,
+      weight=-0.1,
       params={"asset_cfg": _ROBOT_CFG},
     ),
-    "joint_torque": RewardTermCfg(
-      func=env_mdp.joint_torques_l2,
+    "torques": RewardTermCfg(
+      func=mdp.torques,
       weight=-1.0e-4,
-      params={"asset_cfg": _ROBOT_ACTUATOR_CFG},
+      params={"action_name": "joint_pos"},
+    ),
+    "torque_limits": RewardTermCfg(
+      func=mdp.torque_limits,
+      weight=-0.05,
+      params={"action_name": "joint_pos", "soft_limit": 0.9},
     ),
     "joint_velocity": RewardTermCfg(
       func=env_mdp.joint_vel_l2,
@@ -308,9 +343,14 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
       weight=-0.5,
       params={"asset_cfg": _ROBOT_CFG},
     ),
+    "ang_vel_xy": RewardTermCfg(
+      func=mdp.ang_vel_xy,
+      weight=-0.05,
+      params={"asset_cfg": _ROBOT_CFG},
+    ),
     "joint_limits": RewardTermCfg(
       func=env_mdp.joint_pos_limits,
-      weight=-0.5,
+      weight=-0.1,
       params={"asset_cfg": _ROBOT_CFG},
     ),
     "action_rate": RewardTermCfg(func=env_mdp.action_rate_l2, weight=-5.0e-3),
@@ -350,7 +390,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
           name=_FEET_CONTACT_SENSOR,
           primary=ContactMatch(
             mode="body",
-            pattern=("left_ankle_pitch_link", "right_ankle_pitch_link"),
+            pattern=("left_foot", "right_foot"),
             entity="bd",
           ),
           secondary=ContactMatch(mode="geom", pattern="terrain"),

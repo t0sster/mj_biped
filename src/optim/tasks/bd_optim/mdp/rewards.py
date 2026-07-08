@@ -74,3 +74,44 @@ def base_lin_vel_z_l2(
 ) -> torch.Tensor:
   asset = env.scene[asset_cfg.name]
   return torch.square(asset.data.root_link_lin_vel_b[:, 2])
+
+
+def ang_vel_xy(
+  env,
+  asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+  asset = env.scene[asset_cfg.name]
+  return torch.sum(torch.square(asset.data.root_link_ang_vel_b[:, :2]), dim=1)
+
+
+def torques(
+  env,
+  action_name: str = "joint_pos",
+) -> torch.Tensor:
+  action = env.action_manager.get_term(action_name)
+  tau_motor_cmd, _, ctrl_limit = _motor_torque_terms(action)
+  normalized_torque = tau_motor_cmd / torch.clamp(ctrl_limit, min=1.0e-6)
+  return torch.sum(torch.square(normalized_torque), dim=1)
+
+
+def torque_limits(
+  env,
+  action_name: str = "joint_pos",
+  soft_limit: float = 0.8,
+) -> torch.Tensor:
+  action = env.action_manager.get_term(action_name)
+  tau_motor_cmd, _, ctrl_limit = _motor_torque_terms(action)
+  normalized_torque = torch.abs(tau_motor_cmd) / torch.clamp(ctrl_limit, min=1.0e-6)
+  return torch.sum((normalized_torque - soft_limit).clamp(min=0.0), dim=1)
+
+
+def _motor_torque_terms(action) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+  entity = action._entity
+  target_ids = action.target_ids
+  q_des = action._processed_actions - entity.data.encoder_bias[:, target_ids]
+  q = entity.data.joint_pos[:, target_ids]
+  qd = entity.data.joint_vel[:, target_ids]
+  tau_joint_cmd = action._stiffness * (q_des - q) - action._damping * qd
+  tau_motor_cmd = tau_joint_cmd / action._gear
+  ctrl_limit = torch.maximum(torch.abs(action._ctrl_min), torch.abs(action._ctrl_max))
+  return tau_motor_cmd, tau_joint_cmd, ctrl_limit

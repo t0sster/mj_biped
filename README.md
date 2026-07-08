@@ -25,7 +25,15 @@ uv run pytest
 The test suite is intentionally lightweight: it checks package helpers and
 environment configuration without running training or a full simulation.
 
-## Policy Export
+## More
+
+### Play bd_optim plotter
+
+```bash
+uv run optim-play-bd-checkpoint bd_optim/checkpoint_folder_name --duration 10 --lin-vel-x 0.2
+```
+
+### Policy Export
 
 Export the latest checkpoint from a run under `logs/rsl_rl`:
 
