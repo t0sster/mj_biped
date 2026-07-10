@@ -174,7 +174,13 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     "joint_pos": mdp.JointPositionToMotorEffortActionCfg(
       entity_name="bd",
       actuator_names=_ACTUATED_JOINT_NAMES,
-      scale=0.5,
+      scale={
+        ".*hip_pitch": 0.5,
+        ".*knee_pitch": 0.5,
+        ".*ankle_pitch": 0.35,
+        ".*hip_roll": 0.4,
+        ".*thigh_yaw": 0.4,
+      },
       use_default_offset=True,
       preserve_order=True,
       stiffness={

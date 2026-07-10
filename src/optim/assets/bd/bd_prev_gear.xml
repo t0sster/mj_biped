@@ -111,7 +111,7 @@
                                 <body name="left_foot" pos="0 0 -0.055" childclass="foot_properties">
                                     <geom type="box" pos="0.07 0.025 0" size="0.02 0.02 0.005"/>
                                     <geom type="box" pos="0.07 -0.025 0" size="0.02 0.02 0.005"/>
-                                    <!-- <geom type="box" pos="0 0 0" size="0.04 0.02 0.005"/> -->
+                                    <geom type="box" pos="0 0 0" size="0.04 0.02 0.005"/>
                                     <geom type="box" pos="-0.07 0 0" size="0.02 0.02 0.005"/>
                                 </body>
                                 <inertial pos="0.015 0 -0.055" mass="0.2" diaginertia="0.0001 0.0005 0.0005"/>
@@ -167,7 +167,7 @@
                                 <body name="right_foot" pos="0 0 -0.055" childclass="foot_properties">
                                     <geom type="box" pos="0.07 0.025 0" size="0.02 0.02 0.005"/>
                                     <geom type="box" pos="0.07 -0.025 0" size="0.02 0.02 0.005"/>
-                                    <!-- <geom type="box" pos="0 0 0" size="0.04 0.02 0.005"/> -->
+                                    <geom type="box" pos="0 0 0" size="0.04 0.02 0.005"/>
                                     <geom type="box" pos="-0.07 0 0" size="0.02 0.02 0.005"/>
                                 </body>
                                 <inertial pos="0.015 0 -0.055" mass="0.2" diaginertia="0.0001 0.0005 0.0005"/>
@@ -185,12 +185,12 @@
         <motor name="ML1_hip_roll"      class="motor_J"   joint="JL1_hip_roll"    gear="1" forcerange="-20 20" ctrlrange="-20 20"/>
         <motor name="ML2_thigh_yaw"     class="motor_J"   joint="JL2_thigh_yaw"   gear="1" forcerange="-12 12" ctrlrange="-12 12"/>
         <motor name="ML3_knee_pitch"    class="motor_J"   joint="JL3_knee_pitch"  gear="2" forcerange="-20 20" ctrlrange="-20 20"/>
-        <motor name="ML4_ankle_pitch"   class="motor_J"   joint="JL4_ankle_pitch" gear="1" forcerange="-12 12" ctrlrange="-12 12"/>
+        <motor name="ML4_ankle_pitch"   class="motor_J"   joint="JL4_ankle_pitch" gear="2" forcerange="-12 12" ctrlrange="-12 12"/>
         
         <motor name="MR0_hip_pitch"     class="motor_J"   joint="JR0_hip_pitch"   gear="1" forcerange="-20 20" ctrlrange="-20 20"/>
         <motor name="MR1_hip_roll"      class="motor_J"   joint="JR1_hip_roll"    gear="1" forcerange="-20 20" ctrlrange="-20 20"/>
         <motor name="MR2_thigh_yaw"     class="motor_J"   joint="JR2_thigh_yaw"   gear="1" forcerange="-12 12" ctrlrange="-12 12"/>
         <motor name="MR3_knee_pitch"    class="motor_J"   joint="JR3_knee_pitch"  gear="2" forcerange="-20 20" ctrlrange="-20 20"/>
-        <motor name="MR4_ankle_pitch"   class="motor_J"   joint="JR4_ankle_pitch" gear="1" forcerange="-12 12" ctrlrange="-12 12"/>
+        <motor name="MR4_ankle_pitch"   class="motor_J"   joint="JR4_ankle_pitch" gear="2" forcerange="-12 12" ctrlrange="-12 12"/>
     </actuator>
 </mujoco>
