@@ -178,30 +178,30 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
       use_default_offset=True,
       preserve_order=True,
       stiffness={
-        "JL0_hip_pitch": 25.0,
-        "JL1_hip_roll": 25.0,
-        "JL2_thigh_yaw": 20.0,
-        "JL3_knee_pitch": 25.0,
-        "JL4_ankle_pitch": 20.0,
+        "JL0_hip_pitch": 45.0,
+        "JL1_hip_roll": 45.0,
+        "JL2_thigh_yaw": 40.0,
+        "JL3_knee_pitch": 45.0,
+        "JL4_ankle_pitch": 40.0,
 
-        "JR0_hip_pitch": 25.0,
-        "JR1_hip_roll": 25.0,
-        "JR2_thigh_yaw": 20.0,
-        "JR3_knee_pitch": 25.0,
-        "JR4_ankle_pitch": 20.0,
+        "JR0_hip_pitch": 45.0,
+        "JR1_hip_roll": 45.0,
+        "JR2_thigh_yaw": 40.0,
+        "JR3_knee_pitch": 45.0,
+        "JR4_ankle_pitch": 40.0,
       },
       damping={
-        "JL0_hip_pitch": 2.5,
-        "JL1_hip_roll": 2.5,
-        "JL2_thigh_yaw": 2.0,
-        "JL3_knee_pitch": 2.5,
-        "JL4_ankle_pitch": 2.0,
+        "JL0_hip_pitch": 4.5,
+        "JL1_hip_roll": 4.5,
+        "JL2_thigh_yaw": 4.0,
+        "JL3_knee_pitch": 4.5,
+        "JL4_ankle_pitch": 4.0,
 
-        "JR0_hip_pitch": 2.5,
-        "JR1_hip_roll": 2.5,
-        "JR2_thigh_yaw": 2.0,
-        "JR3_knee_pitch": 2.5,
-        "JR4_ankle_pitch": 2.0,
+        "JR0_hip_pitch": 4.5,
+        "JR1_hip_roll": 4.5,
+        "JR2_thigh_yaw": 4.0,
+        "JR3_knee_pitch": 4.5,
+        "JR4_ankle_pitch": 4.0,
       },
     ),
   }
@@ -210,7 +210,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     "velocity": mdp.UniformVelocityCommandCfg(
       entity_name="bd",
       resampling_time_range=(5.0, 10.0),
-      rel_standing_envs=0.15,
+      rel_standing_envs=0.05,
       rel_forward_envs=0.5,
       heading_command=False,
       ranges=mdp.UniformVelocityCommandCfg.Ranges(
@@ -235,7 +235,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
-        "std": math.sqrt(0.25),
+        "std": math.sqrt(0.15),
       },
     ),
     "track_ang_vel_z": RewardTermCfg(
@@ -244,7 +244,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
-        "std": math.sqrt(0.25),
+        "std": math.sqrt(0.20),
       },
     ),
     "posture": RewardTermCfg(
@@ -312,7 +312,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     ),
     "foot_contact_force": RewardTermCfg(
       func=mdp.feet_contact_forces,
-      weight=-2.0e-4,
+      weight=-2.0e-3,
       params={
         "sensor_name": _FEET_CONTACT_SENSOR,
         "max_force": 80.0,
@@ -320,7 +320,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     ),
     "base_lin_vel_z": RewardTermCfg(
       func=mdp.base_lin_vel_z_l2,
-      weight=-0.1,
+      weight=-0.05,
       params={"asset_cfg": _ROBOT_CFG},
     ),
     "torques": RewardTermCfg(
@@ -330,7 +330,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     ),
     "torque_limits": RewardTermCfg(
       func=mdp.torque_limits,
-      weight=-0.05,
+      weight=-0.1,
       params={"action_name": "joint_pos", "soft_limit": 0.9},
     ),
     "joint_velocity": RewardTermCfg(
@@ -340,7 +340,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     ),
     "flat_orientation": RewardTermCfg(
       func=env_mdp.flat_orientation_l2,
-      weight=-0.5,
+      weight=-0.1,
       params={"asset_cfg": _ROBOT_CFG},
     ),
     "ang_vel_xy": RewardTermCfg(
@@ -350,7 +350,7 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
     ),
     "joint_limits": RewardTermCfg(
       func=env_mdp.joint_pos_limits,
-      weight=-0.1,
+      weight=-0.05,
       params={"asset_cfg": _ROBOT_CFG},
     ),
     "action_rate": RewardTermCfg(func=env_mdp.action_rate_l2, weight=-5.0e-3),
