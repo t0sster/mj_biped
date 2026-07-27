@@ -10,8 +10,8 @@ from mjlab.managers.command_manager import CommandTerm, CommandTermCfg
 class UniformGaitCommandCfg(CommandTermCfg):
   @dataclass
   class Ranges:
-    frequencies: tuple[float, float] = (0.8, 1.5)
-    duty_cycle: tuple[float, float] = (0.5, 0.5)
+    frequencies: tuple[float, float] = (0.8, 1.4)
+    duty_cycle: tuple[float, float] = (0.6, 0.6)
 
   ranges: Ranges
 
@@ -20,6 +20,8 @@ class UniformGaitCommandCfg(CommandTermCfg):
 
 
 class UniformGaitCommand(CommandTerm):
+  """Alternating left/right gait phase and desired contact schedule."""
+
   cfg: UniformGaitCommandCfg
 
   def __init__(self, cfg: UniformGaitCommandCfg, env) -> None:
@@ -41,20 +43,18 @@ class UniformGaitCommand(CommandTerm):
     pass
 
   def _resample_command(self, env_ids: torch.Tensor) -> None:
-    freq_min, freq_max = self.cfg.ranges.frequencies
-    duty_min, duty_max = self.cfg.ranges.duty_cycle
-    self._frequency[env_ids] = self._frequency[env_ids].uniform_(freq_min, freq_max)
-    self._duty_cycle[env_ids] = self._duty_cycle[env_ids].uniform_(duty_min, duty_max)
-    self._phase[env_ids] = self._phase[env_ids].uniform_(0.0, 1.0)
+    frequency_min, frequency_max = self.cfg.ranges.frequencies
+    duty_cycle_min, duty_cycle_max = self.cfg.ranges.duty_cycle
+    self._frequency[env_ids].uniform_(frequency_min, frequency_max)
+    self._duty_cycle[env_ids].uniform_(duty_cycle_min, duty_cycle_max)
+    self._phase[env_ids].uniform_(0.0, 1.0)
 
   def _update_command(self) -> None:
     left_phase = self._phase
     right_phase = torch.remainder(self._phase + 0.5, 1.0)
-    left_contact = left_phase < self._duty_cycle
-    right_contact = right_phase < self._duty_cycle
 
     self._command[:, 0] = left_phase
     self._command[:, 1] = right_phase
-    self._command[:, 2] = left_contact.float()
-    self._command[:, 3] = right_contact.float()
+    self._command[:, 2] = (left_phase < self._duty_cycle).float()
+    self._command[:, 3] = (right_phase < self._duty_cycle).float()
     self._command[:, 4] = self._frequency

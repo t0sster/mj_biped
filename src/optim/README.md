@@ -68,9 +68,7 @@ uv run optim-play --task stand --pose crouch --viewer --duration 2.0
 
 The controller interface is position-based:
 
-```text
-q_des -> PD joint torque -> motor torque / gear -> ctrl clipping -> MuJoCo
-```
+- q_des -> PD joint torque -> motor torque / gear -> ctrl clipping -> MuJoCo
 
 The logged metrics stay motor-focused so different tasks can be compared with
 the same output schema.

@@ -27,7 +27,7 @@ optim-play-bd-checkpoint = "optim.scripts.play_bd_checkpoint:main"
 optim-plot = "optim.scripts.plot_metrics:main"
 
 [project.entry-points."mjlab.tasks"]
-mj-biped = "mj_biped.tasks:biped_2d"
+mj-biped = "mj_biped.tasks"
 optim = "optim.tasks"
 
 [build-system]

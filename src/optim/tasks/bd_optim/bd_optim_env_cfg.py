@@ -213,13 +213,13 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
   }
 
   commands: dict[str, CommandTermCfg] = {
-    "velocity": mdp.UniformVelocityCommandCfg(
+    "velocity": velocity_mdp.UniformVelocityCommandCfg(
       entity_name="bd",
       resampling_time_range=(5.0, 10.0),
       rel_standing_envs=0.05,
       rel_forward_envs=0.5,
       heading_command=False,
-      ranges=mdp.UniformVelocityCommandCfg.Ranges(
+      ranges=velocity_mdp.UniformVelocityCommandCfg.Ranges(
         lin_vel_x=(-0.2, 0.4),
         lin_vel_y=(-0.2, 0.2),
         ang_vel_z=(-0.5, 0.5),

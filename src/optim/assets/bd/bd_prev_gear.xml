@@ -109,10 +109,10 @@
                                 <joint name="JL4_ankle_pitch" axis="0 -1 0" range="-1.57 0.785" armature="0.0020465" damping="0.2"/>
                                 <!-- <geom class="foot" pos="0.015 0 -0.055" rgba="0.2 0.3 0.7 1"/> -->
                                 <body name="left_foot" pos="0 0 -0.055" childclass="foot_properties">
-                                    <geom type="box" pos="0.07 0.025 0" size="0.02 0.02 0.005"/>
-                                    <geom type="box" pos="0.07 -0.025 0" size="0.02 0.02 0.005"/>
-                                    <geom type="box" pos="0 0 0" size="0.04 0.02 0.005"/>
-                                    <geom type="box" pos="-0.07 0 0" size="0.02 0.02 0.005"/>
+                                    <geom type="box" pos="0.06 0.02 0" size="0.01 0.015 0.005"/>
+                                    <geom type="box" pos="0.06 -0.02 0" size="0.01 0.015 0.005"/>
+                                    <geom type="box" pos="0 0 0" size="0.04 0.015 0.005"/>
+                                    <geom type="box" pos="-0.06 0 0" size="0.01 0.015 0.005"/>
                                 </body>
                                 <inertial pos="0.015 0 -0.055" mass="0.2" diaginertia="0.0001 0.0005 0.0005"/>
                             </body>
@@ -165,10 +165,10 @@
                                 <joint name="JR4_ankle_pitch" axis="0 1 0" range="-0.785 1.31" armature="0.0020465" damping="0.2"/>
                                 <!-- <geom class="foot" pos="0.015 0 -0.055" rgba="0.2 0.3 0.7 1"/> -->
                                 <body name="right_foot" pos="0 0 -0.055" childclass="foot_properties">
-                                    <geom type="box" pos="0.07 0.025 0" size="0.02 0.02 0.005"/>
-                                    <geom type="box" pos="0.07 -0.025 0" size="0.02 0.02 0.005"/>
-                                    <geom type="box" pos="0 0 0" size="0.04 0.02 0.005"/>
-                                    <geom type="box" pos="-0.07 0 0" size="0.02 0.02 0.005"/>
+                                    <geom type="box" pos="0.06 0.02 0" size="0.01 0.015 0.005"/>
+                                    <geom type="box" pos="0.06 -0.02 0" size="0.01 0.015 0.005"/>
+                                    <geom type="box" pos="0 0 0" size="0.04 0.015 0.005"/>
+                                    <geom type="box" pos="-0.06 0 0" size="0.01 0.015 0.005"/>
                                 </body>
                                 <inertial pos="0.015 0 -0.055" mass="0.2" diaginertia="0.0001 0.0005 0.0005"/>
                             </body>

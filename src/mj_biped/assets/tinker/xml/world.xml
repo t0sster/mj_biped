@@ -1,0 +1,30 @@
+<mujoco model="tinker">
+  <include file="dependencies.xml" />
+
+  <worldbody>
+    <include file="tinker_range.xml" />
+  </worldbody>
+
+  <actuator>
+    <position name="joint_l_yaw" joint="joint_l_yaw" kp="20" kv="0.5"
+      ctrlrange="-0.3 0.3" forcerange="-12 12" />
+    <position name="joint_l_roll" joint="joint_l_roll" kp="20" kv="0.5"
+      ctrlrange="-0.2 0.2" forcerange="-12 12" />
+    <position name="joint_l_pitch" joint="joint_l_pitch" kp="20" kv="0.5"
+      ctrlrange="-0.57 1.57" forcerange="-12 12" />
+    <position name="joint_l_knee" joint="joint_l_knee" kp="20" kv="0.5"
+      ctrlrange="-0.1 1.57" forcerange="-12 12" />
+    <position name="joint_l_ankle" joint="joint_l_ankle" kp="20" kv="0.5"
+      ctrlrange="-0.3 0.8" forcerange="-12 12" />
+    <position name="joint_r_yaw" joint="joint_r_yaw" kp="20" kv="0.5"
+      ctrlrange="-0.3 0.3" forcerange="-12 12" />
+    <position name="joint_r_roll" joint="joint_r_roll" kp="20" kv="0.5"
+      ctrlrange="-0.2 0.2" forcerange="-12 12" />
+    <position name="joint_r_pitch" joint="joint_r_pitch" kp="20" kv="0.5"
+      ctrlrange="-1.57 0.57" forcerange="-12 12" />
+    <position name="joint_r_knee" joint="joint_r_knee" kp="20" kv="0.5"
+      ctrlrange="-1.57 0.1" forcerange="-12 12" />
+    <position name="joint_r_ankle" joint="joint_r_ankle" kp="20" kv="0.5"
+      ctrlrange="-0.8 0.3" forcerange="-12 12" />
+  </actuator>
+</mujoco>

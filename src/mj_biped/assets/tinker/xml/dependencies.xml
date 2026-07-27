@@ -1,0 +1,23 @@
+<mujocoinclude>
+  <compiler
+    angle="radian"
+    autolimits="true"
+    inertiafromgeom="auto"
+    inertiagrouprange="4 5"
+    meshdir="../meshes/"
+  />
+
+  <asset>
+    <mesh name="base_link" file="base_link.STL" />
+    <mesh name="link_l_yaw" file="L0_Link.STL" />
+    <mesh name="link_l_roll" file="L1_Link.STL" />
+    <mesh name="link_l_pitch" file="L2_Link.STL" />
+    <mesh name="link_l_knee" file="L3_Link.STL" />
+    <mesh name="link_l_ankle" file="L4_Link_ankle.STL" />
+    <mesh name="link_r_yaw" file="R0_Link.STL" />
+    <mesh name="link_r_roll" file="R1_Link.STL" />
+    <mesh name="link_r_pitch" file="R2_Link.STL" />
+    <mesh name="link_r_knee" file="R3_Link.STL" />
+    <mesh name="link_r_ankle" file="R4_Link_ankle.STL" />
+  </asset>
+</mujocoinclude>

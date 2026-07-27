@@ -1,0 +1,412 @@
+from __future__ import annotations
+
+import math
+from pathlib import Path
+
+import mujoco
+from mjlab.actuator import XmlActuatorCfg
+from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
+from mjlab.envs import ManagerBasedRlEnvCfg
+from mjlab.envs import mdp as env_mdp
+from mjlab.envs.mdp.actions import JointPositionActionCfg
+from mjlab.managers.action_manager import ActionTermCfg
+from mjlab.managers.command_manager import CommandTermCfg
+from mjlab.managers.observation_manager import (
+  ObservationGroupCfg,
+  ObservationTermCfg,
+)
+from mjlab.managers.reward_manager import RewardTermCfg
+from mjlab.managers.scene_entity_config import SceneEntityCfg
+from mjlab.managers.termination_manager import TerminationTermCfg
+from mjlab.scene import SceneCfg
+from mjlab.sensor import ContactMatch, ContactSensorCfg
+from mjlab.sim import MujocoCfg, SimulationCfg
+from mjlab.tasks.velocity import mdp as velocity_mdp
+from mjlab.terrains import TerrainEntityCfg
+from mjlab.utils.noise import UniformNoiseCfg
+from mjlab.viewer import ViewerConfig
+
+from mj_biped.tasks.tinker import mdp
+
+_TINKER_XML = (
+  Path(__file__).resolve().parents[2] / "assets" / "tinker" / "xml" / "world.xml"
+)
+
+_JOINT_NAMES = (
+  "joint_l_yaw",
+  "joint_l_roll",
+  "joint_l_pitch",
+  "joint_l_knee",
+  "joint_l_ankle",
+  "joint_r_yaw",
+  "joint_r_roll",
+  "joint_r_pitch",
+  "joint_r_knee",
+  "joint_r_ankle",
+)
+
+_ROBOT_CFG = SceneEntityCfg("tinker", joint_names=_JOINT_NAMES)
+_ROBOT_ACTUATOR_CFG = SceneEntityCfg("tinker", actuator_names=_JOINT_NAMES)
+_FOOT_SITE_CFG = SceneEntityCfg(
+  "tinker",
+  site_names=("left_foot", "right_foot"),
+  preserve_order=True,
+)
+
+_DECIMATION = 10
+_PLAY_NUM_ENVS = 1
+_FEET_CONTACT_SENSOR = "feet_ground_contact"
+_ILLEGAL_CONTACT_SENSOR = "illegal_ground_contact"
+
+
+def _get_tinker_spec() -> mujoco.MjSpec:
+  return mujoco.MjSpec.from_file(str(_TINKER_XML))
+
+
+_TINKER_ARTICULATION = EntityArticulationInfoCfg(
+  actuators=(XmlActuatorCfg(target_names_expr=_JOINT_NAMES),),
+  soft_joint_pos_limit_factor=0.9,
+)
+
+_TINKER_INITIAL_STATE = EntityCfg.InitialStateCfg(
+  pos=(0.0, 0.0, 0.325),
+  rot=(1.0, 0.0, 0.0, 0.0),
+  joint_pos={
+    "joint_l_yaw": 0.0,
+    "joint_l_roll": 0.0,
+    "joint_l_pitch": 0.45,
+    "joint_l_knee": 0.9,
+    "joint_l_ankle": 0.45,
+    "joint_r_yaw": 0.0,
+    "joint_r_roll": 0.0,
+    "joint_r_pitch": -0.45,
+    "joint_r_knee": -0.9,
+    "joint_r_ankle": -0.45,
+  },
+  joint_vel={".*": 0.0},
+)
+
+
+def _get_tinker_cfg() -> EntityCfg:
+  return EntityCfg(
+    spec_fn=_get_tinker_spec,
+    articulation=_TINKER_ARTICULATION,
+    init_state=_TINKER_INITIAL_STATE,
+  )
+
+
+def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
+  actor_terms = {
+    "base_lin_vel": ObservationTermCfg(
+      func=env_mdp.base_lin_vel,
+      params={"asset_cfg": _ROBOT_CFG},
+      noise=UniformNoiseCfg(n_min=-0.1, n_max=0.1),
+    ),
+    "base_ang_vel": ObservationTermCfg(
+      func=env_mdp.base_ang_vel,
+      params={"asset_cfg": _ROBOT_CFG},
+      noise=UniformNoiseCfg(n_min=-0.1, n_max=0.1),
+    ),
+    "projected_gravity": ObservationTermCfg(
+      func=env_mdp.projected_gravity,
+      params={"asset_cfg": _ROBOT_CFG},
+      noise=UniformNoiseCfg(n_min=-0.05, n_max=0.05),
+    ),
+    "velocity_command": ObservationTermCfg(
+      func=env_mdp.generated_commands,
+      params={"command_name": "velocity"},
+    ),
+    "gait_phase": ObservationTermCfg(
+      func=mdp.gait_phase_observation,
+      params={"command_name": "gait"},
+    ),
+    "joint_pos": ObservationTermCfg(
+      func=env_mdp.joint_pos_rel,
+      params={"asset_cfg": _ROBOT_CFG},
+      noise=UniformNoiseCfg(n_min=-0.01, n_max=0.01),
+    ),
+    "joint_vel": ObservationTermCfg(
+      func=env_mdp.joint_vel_rel,
+      params={"asset_cfg": _ROBOT_CFG},
+      noise=UniformNoiseCfg(n_min=-0.5, n_max=0.5),
+    ),
+    "last_action": ObservationTermCfg(func=env_mdp.last_action),
+  }
+
+  observations = {
+    "actor": ObservationGroupCfg(actor_terms, enable_corruption=True),
+    "critic": ObservationGroupCfg(
+      {
+        **actor_terms,
+        "foot_air_time": ObservationTermCfg(
+          func=velocity_mdp.foot_air_time,
+          params={"sensor_name": _FEET_CONTACT_SENSOR},
+        ),
+        "foot_contact_forces": ObservationTermCfg(
+          func=velocity_mdp.foot_contact_forces,
+          params={"sensor_name": _FEET_CONTACT_SENSOR},
+        ),
+      },
+      enable_corruption=False,
+    ),
+  }
+
+  actions: dict[str, ActionTermCfg] = {
+    "joint_pos": JointPositionActionCfg(
+      entity_name="tinker",
+      actuator_names=_JOINT_NAMES,
+      scale={
+        ".*_yaw": 0.25,
+        ".*_roll": 0.15,
+        ".*_pitch": 0.4,
+        ".*_knee": 0.35,
+        ".*_ankle": 0.25,
+      },
+      use_default_offset=True,
+      preserve_order=True,
+    ),
+  }
+
+  commands: dict[str, CommandTermCfg] = {
+    "velocity": velocity_mdp.UniformVelocityCommandCfg(
+      entity_name="tinker",
+      resampling_time_range=(4.0, 8.0),
+      rel_standing_envs=0.1,
+      rel_forward_envs=0.3,
+      heading_command=False,
+      ranges=velocity_mdp.UniformVelocityCommandCfg.Ranges(
+        lin_vel_x=(-0.25, 0.5),
+        lin_vel_y=(-0.2, 0.2),
+        ang_vel_z=(-0.6, 0.6),
+      ),
+    ),
+    "gait": mdp.UniformGaitCommandCfg(
+      resampling_time_range=(1.0e6, 1.0e6),
+      ranges=mdp.UniformGaitCommandCfg.Ranges(
+        frequencies=(0.8, 1.4),
+        duty_cycle=(0.6, 0.6),
+      ),
+    ),
+  }
+
+  rewards = {
+    "track_linear_velocity": RewardTermCfg(
+      func=velocity_mdp.track_linear_velocity,
+      weight=1.5,
+      params={
+        "asset_cfg": _ROBOT_CFG,
+        "command_name": "velocity",
+        "std": math.sqrt(0.15),
+      },
+    ),
+    "track_angular_velocity": RewardTermCfg(
+      func=velocity_mdp.track_angular_velocity,
+      weight=1.0,
+      params={
+        "asset_cfg": _ROBOT_CFG,
+        "command_name": "velocity",
+        "std": math.sqrt(0.2),
+      },
+    ),
+    "posture": RewardTermCfg(
+      func=velocity_mdp.variable_posture,
+      weight=0.2,
+      params={
+        "asset_cfg": _ROBOT_CFG,
+        "command_name": "velocity",
+        "std_standing": {".*": math.sqrt(0.08)},
+        "std_walking": {
+          ".*_yaw": math.sqrt(0.08),
+          ".*_roll": math.sqrt(0.05),
+          ".*_pitch": math.sqrt(0.4),
+          ".*_knee": math.sqrt(0.4),
+          ".*_ankle": math.sqrt(0.25),
+        },
+        "std_running": {
+          ".*_yaw": math.sqrt(0.15),
+          ".*_roll": math.sqrt(0.1),
+          ".*_pitch": math.sqrt(0.5),
+          ".*_knee": math.sqrt(0.5),
+          ".*_ankle": math.sqrt(0.35),
+        },
+        "walking_threshold": 0.05,
+        "running_threshold": 0.4,
+      },
+    ),
+    "swing_foot_force": RewardTermCfg(
+      func=mdp.swing_foot_force_l2,
+      weight=-0.5,
+      params={
+        "command_name": "gait",
+        "motion_command_name": "velocity",
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "force_scale": 50.0,
+        "command_threshold": 0.05,
+      },
+    ),
+    "stance_foot_velocity": RewardTermCfg(
+      func=mdp.stance_foot_velocity_l2,
+      weight=-0.5,
+      params={
+        "asset_cfg": _FOOT_SITE_CFG,
+        "command_name": "gait",
+        "motion_command_name": "velocity",
+        "command_threshold": 0.05,
+      },
+    ),
+    "feet_air_time": RewardTermCfg(
+      func=mdp.biped_air_time,
+      weight=0.5,
+      params={
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "command_name": "velocity",
+        "max_reward_time": 0.25,
+        "command_threshold": 0.05,
+      },
+    ),
+    "soft_landing": RewardTermCfg(
+      func=velocity_mdp.soft_landing,
+      weight=-5.0e-3,
+      params={
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "command_name": "velocity",
+        "command_threshold": 0.05,
+      },
+    ),
+    "excessive_foot_force": RewardTermCfg(
+      func=mdp.excessive_foot_force,
+      weight=-2.0e-3,
+      params={
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "max_force": 80.0,
+      },
+    ),
+    "base_vertical_velocity": RewardTermCfg(
+      func=mdp.base_vertical_velocity_l2,
+      weight=-0.05,
+      params={"asset_cfg": _ROBOT_CFG},
+    ),
+    "joint_torques": RewardTermCfg(
+      func=env_mdp.joint_torques_l2,
+      weight=-1.0e-4,
+      params={"asset_cfg": _ROBOT_ACTUATOR_CFG},
+    ),
+    "joint_velocity": RewardTermCfg(
+      func=env_mdp.joint_vel_l2,
+      weight=-1.0e-4,
+      params={"asset_cfg": _ROBOT_CFG},
+    ),
+    "flat_orientation": RewardTermCfg(
+      func=env_mdp.flat_orientation_l2,
+      weight=-0.1,
+      params={"asset_cfg": _ROBOT_CFG},
+    ),
+    "joint_limits": RewardTermCfg(
+      func=env_mdp.joint_pos_limits,
+      weight=-0.05,
+      params={"asset_cfg": _ROBOT_CFG},
+    ),
+    "action_rate": RewardTermCfg(func=env_mdp.action_rate_l2, weight=-5.0e-3),
+    "action_acceleration": RewardTermCfg(
+      func=env_mdp.action_acc_l2,
+      weight=-1.0e-3,
+    ),
+  }
+
+  terminations = {
+    "time_out": TerminationTermCfg(func=env_mdp.time_out, time_out=True),
+    "root_height": TerminationTermCfg(
+      func=env_mdp.root_height_below_minimum,
+      params={"minimum_height": 0.2, "asset_cfg": _ROBOT_CFG},
+    ),
+    "bad_orientation": TerminationTermCfg(
+      func=env_mdp.bad_orientation,
+      params={"limit_angle": math.radians(70.0), "asset_cfg": _ROBOT_CFG},
+    ),
+    "illegal_ground_contact": TerminationTermCfg(
+      func=velocity_mdp.illegal_contact,
+      params={
+        "sensor_name": _ILLEGAL_CONTACT_SENSOR,
+        "force_threshold": 5.0,
+      },
+    ),
+  }
+
+  feet_contact_sensor = ContactSensorCfg(
+    name=_FEET_CONTACT_SENSOR,
+    primary=ContactMatch(
+      mode="body",
+      pattern=("link_l_ankle", "link_r_ankle"),
+      entity="tinker",
+    ),
+    secondary=ContactMatch(mode="geom", pattern="terrain"),
+    fields=("found", "force"),
+    reduce="netforce",
+    track_air_time=True,
+    history_length=_DECIMATION,
+  )
+  illegal_contact_sensor = ContactSensorCfg(
+    name=_ILLEGAL_CONTACT_SENSOR,
+    primary=ContactMatch(
+      mode="body",
+      pattern=(
+        "base_link",
+        "link_l_pitch",
+        "link_l_knee",
+        "link_r_pitch",
+        "link_r_knee",
+      ),
+      entity="tinker",
+    ),
+    secondary=ContactMatch(mode="geom", pattern="terrain"),
+    fields=("found", "force"),
+    reduce="netforce",
+    history_length=_DECIMATION,
+  )
+
+  return ManagerBasedRlEnvCfg(
+    scene=SceneCfg(
+      terrain=TerrainEntityCfg(terrain_type="plane"),
+      entities={"tinker": _get_tinker_cfg()},
+      sensors=(feet_contact_sensor, illegal_contact_sensor),
+      num_envs=num_envs,
+      env_spacing=2.0,
+    ),
+    observations=observations,
+    actions=actions,
+    commands=commands,
+    rewards=rewards,
+    terminations=terminations,
+    metrics={},
+    viewer=ViewerConfig(
+      origin_type=ViewerConfig.OriginType.ASSET_BODY,
+      entity_name="tinker",
+      body_name="base_link",
+      distance=2.0,
+      elevation=-10.0,
+      azimuth=90.0,
+    ),
+    sim=SimulationCfg(
+      nconmax=48,
+      njmax=128,
+      mujoco=MujocoCfg(
+        timestep=0.002,
+        iterations=10,
+        ls_iterations=20,
+      ),
+    ),
+    decimation=_DECIMATION,
+    episode_length_s=20.0,
+  )
+
+
+def tinker_env_cfg(
+  play: bool = False,
+  num_envs: int = 1024,
+  play_num_envs: int = _PLAY_NUM_ENVS,
+) -> ManagerBasedRlEnvCfg:
+  cfg = _make_env_cfg(play_num_envs if play else num_envs)
+  if play:
+    cfg.episode_length_s = 1e10
+    cfg.observations["actor"].enable_corruption = False
+  return cfg
