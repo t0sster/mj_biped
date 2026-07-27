@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 
 import mujoco
-from mjlab.actuator import XmlActuatorCfg
+from mjlab.actuator import BuiltinPositionActuatorCfg
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp as env_mdp
@@ -58,15 +58,45 @@ _PLAY_NUM_ENVS = 1
 _FEET_CONTACT_SENSOR = "feet_ground_contact"
 _ILLEGAL_CONTACT_SENSOR = "illegal_ground_contact"
 
+# TODO(tinker): значения по даташитам DM-6006 / DM-8006 пока не подставлены —
+# используются те же числа, что были в XML. Актюаторы отличаются только
+# effort_limit/armature/frictionloss/viscous_damping и параметрами задержки.
+# Реальное распределение по суставам: yaw и ankle стоят на DM-6006, roll/pitch/knee — на DM-8006.
+_DM6006_JOINT_NAMES_EXPR = (".*_yaw", ".*_ankle")
+_DM8006_JOINT_NAMES_EXPR = (".*_roll", ".*_pitch", ".*_knee")
+
+_TINKER_ARTICULATION = EntityArticulationInfoCfg(
+  actuators=(
+    BuiltinPositionActuatorCfg(
+      target_names_expr=_DM6006_JOINT_NAMES_EXPR,
+      stiffness=15.0,
+      damping=0.65,
+      effort_limit=12.0,
+      armature=0.01,
+      frictionloss=0.1,
+      viscous_damping=0.01,
+      delay_min_lag=0,
+      delay_max_lag=4,
+    ),
+    BuiltinPositionActuatorCfg(
+      target_names_expr=_DM8006_JOINT_NAMES_EXPR,
+      stiffness=15.0,
+      damping=0.65,
+      effort_limit=20.0,
+      armature=0.01,
+      frictionloss=0.1,
+      viscous_damping=0.01,
+      delay_min_lag=0,
+      delay_max_lag=4,
+    ),
+  ),
+  soft_joint_pos_limit_factor=0.9,
+)
+
 
 def _get_tinker_spec() -> mujoco.MjSpec:
   return mujoco.MjSpec.from_file(str(_TINKER_XML))
 
-
-_TINKER_ARTICULATION = EntityArticulationInfoCfg(
-  actuators=(XmlActuatorCfg(target_names_expr=_JOINT_NAMES),),
-  soft_joint_pos_limit_factor=0.9,
-)
 
 _TINKER_INITIAL_STATE = EntityCfg.InitialStateCfg(
   pos=(0.0, 0.0, 0.325),
