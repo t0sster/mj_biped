@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 
 import mujoco
-from mjlab.actuator.xml_actuator import XmlActuatorCfg
+from mjlab.actuator.builtin_actuator import BuiltinMotorActuatorCfg
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp as env_mdp
@@ -26,7 +26,7 @@ from mjlab.terrains import TerrainEntityCfg
 from mjlab.viewer import ViewerConfig
 
 from optim.tasks.bd_optim import mdp
-
+velocity_mdp
 _BD_XML: Path = Path(__file__).resolve().parents[2] / "assets" / "bd" / "bd_prev_gear.xml"
 
 _BD_JOINT_NAMES = (
@@ -55,7 +55,11 @@ _ACTUATED_JOINT_NAMES = (
   "JR4_ankle_pitch",
 )
 
-_XML_ACTUATOR_NAMES = (
+# Names of the <motor> actuators baked into the XML (used by the standalone
+# optim/core tools). The mjlab task strips these from its own spec copy and
+# rebuilds equivalent actuators via BuiltinMotorActuatorCfg so that armature,
+# frictionloss and viscous_damping can be tuned from this config instead.
+_LEGACY_XML_ACTUATOR_NAMES = (
   "ML0_hip_pitch",
   "ML1_hip_roll",
   "ML2_thigh_yaw",
@@ -68,6 +72,36 @@ _XML_ACTUATOR_NAMES = (
   "MR4_ankle_pitch",
 )
 
+# Per-joint-type actuator targets (left/right pair). Split out so each leg
+# segment gets its own dynamics config instead of a shared per-motor-type one.
+_HIP_PITCH_JOINT_NAMES = ("JL0_hip_pitch", "JR0_hip_pitch")
+_HIP_ROLL_JOINT_NAMES = ("JL1_hip_roll", "JR1_hip_roll")
+_THIGH_YAW_JOINT_NAMES = ("JL2_thigh_yaw", "JR2_thigh_yaw")
+_KNEE_PITCH_JOINT_NAMES = ("JL3_knee_pitch", "JR3_knee_pitch")
+_ANKLE_PITCH_JOINT_NAMES = ("JL4_ankle_pitch", "JR4_ankle_pitch")
+
+# effort_limit by motor type: J8006 drives hip_pitch/hip_roll/knee_pitch,
+# J6006 drives thigh_yaw/ankle_pitch.
+_MOTOR_8006_EFFORT_LIMIT = 8.0
+_MOTOR_6006_EFFORT_LIMIT = 4.0
+
+# armature, frictionloss, viscous_damping per joint type (system identification).
+_HIP_PITCH_ARMATURE, _HIP_PITCH_FRICTIONLOSS, _HIP_PITCH_VISCOUS_DAMPING = (
+  0.1146, 0.225, 0.292,
+)
+_HIP_ROLL_ARMATURE, _HIP_ROLL_FRICTIONLOSS, _HIP_ROLL_VISCOUS_DAMPING = (
+  0.0973, 0.451, 0.001,
+)
+_THIGH_YAW_ARMATURE, _THIGH_YAW_FRICTIONLOSS, _THIGH_YAW_VISCOUS_DAMPING = (
+  0.1241, 0.001, 1.054,
+)
+_KNEE_PITCH_ARMATURE, _KNEE_PITCH_FRICTIONLOSS, _KNEE_PITCH_VISCOUS_DAMPING = (
+  0.0205, 0.001, 0.396,
+)
+_ANKLE_PITCH_ARMATURE, _ANKLE_PITCH_FRICTIONLOSS, _ANKLE_PITCH_VISCOUS_DAMPING = (
+  0.0159, 0.083, 0.290,
+)
+
 _ROBOT_CFG = SceneEntityCfg("bd", joint_names=_BD_JOINT_NAMES)
 _BASE_CONTACT_CFG = SceneEntityCfg("bd", body_names=("pelvis", "head"))
 _FEET_CONTACT_CFG = SceneEntityCfg(
@@ -77,7 +111,7 @@ _FEET_CONTACT_CFG = SceneEntityCfg(
 )
 _TERRAIN_CFG = SceneEntityCfg("terrain", geom_names=("terrain",))
 
-_ROBOT_ACTUATOR_CFG = SceneEntityCfg("bd", actuator_names=_XML_ACTUATOR_NAMES)
+_ROBOT_ACTUATOR_CFG = SceneEntityCfg("bd", actuator_names=_ACTUATED_JOINT_NAMES)
 
 _PLAY_NUM_ENVS = 1
 _DECIMATION = 4
@@ -85,12 +119,54 @@ _FEET_CONTACT_SENSOR = "feet_ground_contact"
 
 
 def _get_spec() -> mujoco.MjSpec:
-  return mujoco.MjSpec.from_file(str(_BD_XML))
+  spec = mujoco.MjSpec.from_file(str(_BD_XML))
+  for actuator_name in _LEGACY_XML_ACTUATOR_NAMES:
+    spec.delete(spec.actuator(actuator_name))
+  return spec
 
 
 _BD_ARTICULATION = EntityArticulationInfoCfg(
   actuators=(
-    XmlActuatorCfg(target_names_expr=_ACTUATED_JOINT_NAMES),
+    BuiltinMotorActuatorCfg(
+      target_names_expr=_HIP_PITCH_JOINT_NAMES,
+      effort_limit=_MOTOR_8006_EFFORT_LIMIT,
+      gear=1.0,
+      armature=_HIP_PITCH_ARMATURE,
+      frictionloss=_HIP_PITCH_FRICTIONLOSS,
+      viscous_damping=_HIP_PITCH_VISCOUS_DAMPING,
+    ),
+    BuiltinMotorActuatorCfg(
+      target_names_expr=_HIP_ROLL_JOINT_NAMES,
+      effort_limit=_MOTOR_8006_EFFORT_LIMIT,
+      gear=1.0,
+      armature=_HIP_ROLL_ARMATURE,
+      frictionloss=_HIP_ROLL_FRICTIONLOSS,
+      viscous_damping=_HIP_ROLL_VISCOUS_DAMPING,
+    ),
+    BuiltinMotorActuatorCfg(
+      target_names_expr=_THIGH_YAW_JOINT_NAMES,
+      effort_limit=_MOTOR_6006_EFFORT_LIMIT,
+      gear=1.0,
+      armature=_THIGH_YAW_ARMATURE,
+      frictionloss=_THIGH_YAW_FRICTIONLOSS,
+      viscous_damping=_THIGH_YAW_VISCOUS_DAMPING,
+    ),
+    BuiltinMotorActuatorCfg(
+      target_names_expr=_KNEE_PITCH_JOINT_NAMES,
+      effort_limit=_MOTOR_8006_EFFORT_LIMIT,
+      gear=1.0,
+      armature=_KNEE_PITCH_ARMATURE,
+      frictionloss=_KNEE_PITCH_FRICTIONLOSS,
+      viscous_damping=_KNEE_PITCH_VISCOUS_DAMPING,
+    ),
+    BuiltinMotorActuatorCfg(
+      target_names_expr=_ANKLE_PITCH_JOINT_NAMES,
+      effort_limit=_MOTOR_6006_EFFORT_LIMIT,
+      gear=1.0,
+      armature=_ANKLE_PITCH_ARMATURE,
+      frictionloss=_ANKLE_PITCH_FRICTIONLOSS,
+      viscous_damping=_ANKLE_PITCH_VISCOUS_DAMPING,
+    ),
   ),
   soft_joint_pos_limit_factor=0.9,
 )
@@ -184,30 +260,30 @@ def _make_env_cfg(num_envs: int = 1024) -> ManagerBasedRlEnvCfg:
       use_default_offset=True,
       preserve_order=True,
       stiffness={
-        "JL0_hip_pitch": 45.0,
-        "JL1_hip_roll": 45.0,
-        "JL2_thigh_yaw": 40.0,
-        "JL3_knee_pitch": 45.0,
-        "JL4_ankle_pitch": 40.0,
+        "JL0_hip_pitch": 15.0,
+        "JL1_hip_roll": 15.0,
+        "JL2_thigh_yaw": 15.0,
+        "JL3_knee_pitch": 15.0,
+        "JL4_ankle_pitch": 15.0,
 
-        "JR0_hip_pitch": 45.0,
-        "JR1_hip_roll": 45.0,
-        "JR2_thigh_yaw": 40.0,
-        "JR3_knee_pitch": 45.0,
-        "JR4_ankle_pitch": 40.0,
+        "JR0_hip_pitch": 15.0,
+        "JR1_hip_roll": 15.0,
+        "JR2_thigh_yaw": 15.0,
+        "JR3_knee_pitch": 15.0,
+        "JR4_ankle_pitch": 15.0,
       },
       damping={
-        "JL0_hip_pitch": 4.5,
-        "JL1_hip_roll": 4.5,
-        "JL2_thigh_yaw": 4.0,
-        "JL3_knee_pitch": 4.5,
-        "JL4_ankle_pitch": 4.0,
+        "JL0_hip_pitch": 0.65,
+        "JL1_hip_roll": 0.65,
+        "JL2_thigh_yaw": 0.65,
+        "JL3_knee_pitch": 0.65,
+        "JL4_ankle_pitch": 0.65,
 
-        "JR0_hip_pitch": 4.5,
-        "JR1_hip_roll": 4.5,
-        "JR2_thigh_yaw": 4.0,
-        "JR3_knee_pitch": 4.5,
-        "JR4_ankle_pitch": 4.0,
+        "JR0_hip_pitch": 0.65,
+        "JR1_hip_roll": 0.65,
+        "JR2_thigh_yaw": 0.65,
+        "JR3_knee_pitch": 0.65,
+        "JR4_ankle_pitch": 0.65,
       },
     ),
   }
