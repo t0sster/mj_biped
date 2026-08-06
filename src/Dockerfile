@@ -53,9 +53,15 @@ RUN uv sync --locked --no-dev
 # tops out at torch 2.11.0 (no 2.12.0 build exists there yet), and without
 # the "+cu128" suffix "torch==2.12.0" silently matches the plain PyPI (CUDA
 # 13) wheel via --extra-index-url instead of failing loudly.
+#
+# --index-strategy unsafe-best-match: uv's default (first-index) stops at the
+# first index that has *any* version of the package, which was PyPI here —
+# it never even looked at the cu128 index for a better match. Both indexes
+# are trusted, so consider versions from both.
 RUN uv pip install --python /opt/venv/bin/python \
       --index-url https://download.pytorch.org/whl/cu128 \
       --extra-index-url https://pypi.org/simple \
+      --index-strategy unsafe-best-match \
       "torch==2.11.0+cu128" "torchvision==0.26.0+cu128"
 
 ENTRYPOINT ["uv", "run"]
