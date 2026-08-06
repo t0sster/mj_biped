@@ -1,83 +1,79 @@
-# syntax=docker/dockerfile:1
+# GPU training image for the `mj_biped` / tinker task. Plain pip, no `uv`
+# binary needed on the server (uv is only used as this repo's *local* dev
+# tool via pyproject.toml's build-system; pip builds it in an isolated env
+# automatically).
 #
-# Build (from repo root, so pyproject.toml/uv.lock are in the build context):
+# IMPORTANT: don't just `pip install mjlab mujoco` + COPY src + PYTHONPATH.
+# `train`/`play` discover tasks via `importlib.metadata.entry_points(group=
+# "mjlab.tasks")` (see mjlab/__init__.py:_import_registered_packages), which
+# only sees packages that are actually *installed* as a distribution (i.e.
+# have a .dist-info/entry_points.txt). A raw file copy on PYTHONPATH is
+# invisible to that lookup, so "Mjlab-Tinker" would silently fail to
+# register. `pip install .` on this repo's own pyproject.toml is what wires
+# `[project.entry-points."mjlab.tasks"] mj-biped = "mj_biped.tasks"` in
+# properly.
+#
+# Build from the REPO ROOT (pyproject.toml lives there, not under src/):
+#
 #   docker build -f src/Dockerfile -t mj-biped-train .
 #
-# Run (GPU, checkpoints persisted on the host):
-#   docker run --rm --gpus all -v $(pwd)/logs:/workspace/logs mj-biped-train \
+# Train (needs an NVIDIA driver + nvidia-container-toolkit on the host):
+#
+#   docker run --rm --gpus all -v "$(pwd)/logs:/app/logs" mj-biped-train \
 #     train Mjlab-Tinker --env.scene.num-envs 1024
 #
-# CPU fallback (no --gpus flag; mjlab picks CPU automatically):
-#   docker run --rm -v $(pwd)/logs:/workspace/logs mj-biped-train \
-#     train Mjlab-Tinker --env.scene.num-envs 64
+# Play a checkpoint:
+#
+#   docker run --rm --gpus all -v "$(pwd)/logs:/app/logs" mj-biped-train \
+#     play Mjlab-Tinker --checkpoint-file logs/rsl_rl/tinker/<run-dir>/model_0.pt
 
 FROM python:3.12-slim
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    UV_LINK_MODE=copy \
-    UV_PROJECT_ENVIRONMENT=/opt/venv \
-    MUJOCO_GL=egl \
-    PATH="/opt/venv/bin:${PATH}"
+WORKDIR /app
 
-# libgl1/libegl1/libosmesa6: headless MuJoCo rendering (video recording, viewer).
+# rsl_rl's logger does `import git` (GitPython) at module load time to tag
+# runs with the current commit; GitPython raises ImportError if no `git`
+# binary is on PATH, which takes down `train`/`play` entirely.
+#
+# libgl1/libegl1/libosmesa6: headless MuJoCo rendering, needed if you ever
+# pass `--video` to `train`/`play` (VideoRecorder). Drop these (and set
+# MUJOCO_GL=disable instead of egl) if you never render.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+      git \
       libgl1 \
       libglfw3 \
       libegl1 \
       libosmesa6 \
-      git \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+ENV MUJOCO_GL=egl \
+    PYTHONUNBUFFERED=1
 
-WORKDIR /workspace
+# Only pyproject.toml/README.md here, NOT src/ yet: Docker invalidates a
+# layer -- and every layer after it -- the moment its COPY'd content
+# changes. Since we edit src/ constantly but the dependency list almost
+# never changes, the expensive installs below must happen BEFORE src/ is
+# copied in, or every source edit forces a full torch/mjlab re-download.
+COPY pyproject.toml README.md ./
 
-# Install third-party deps first so this layer stays cached across source edits.
-COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --locked --no-dev --no-install-project
+# Default PyPI `torch` now bundles a CUDA 13 runtime, which needs an NVIDIA
+# driver >=580.65.06. mjlab's own pyproject routes its `cu128` extra to
+# https://download.pytorch.org/whl/cu128 via `[tool.uv.sources]` -- but that
+# is a uv-only mechanism that plain pip ignores. Reproduce it manually here:
+# install the CUDA 12.8 torch build first so the later install sees the
+# `torch>=2.7.0` requirement already satisfied and never reaches for the
+# CUDA 13 default. Match this to whatever `nvidia-smi` reports on the host
+# (swap cu128 for cu121/cu124/cu126 if it reports an older CUDA version).
+RUN pip install --no-cache-dir "torch==2.11.0+cu128" \
+      --index-url https://download.pytorch.org/whl/cu128
 
-# Now install the local packages (mj_biped, optim) on top.
-COPY src ./src
-RUN uv sync --locked --no-dev
+# Install the rest of the heavy deps up front too, without needing src/ yet.
+# Keep this in sync with [project.dependencies] in pyproject.toml.
+RUN pip install --no-cache-dir "mjlab>=1.4.0" "mujoco>=3.8.1"
 
-# uv.lock resolves plain PyPI `torch`, which on Linux now bundles a CUDA 13
-# runtime (nvidia-*-cu13 wheels) — that needs a driver newer than most hosts
-# have. Swap torch/torchvision for the CUDA 12.8 build from PyTorch's own
-# index instead. Must run *after* the sync above so it isn't reverted by
-# lockfile hash verification. mujoco-warp/warp-lang talk to the driver
-# directly (no bundled CUDA runtime of their own), so they're unaffected.
-#
-# Pinned to the exact "+cu128" local version: download.pytorch.org/whl/cu128
-# tops out at torch 2.11.0 (no 2.12.0 build exists there yet), and without
-# the "+cu128" suffix "torch==2.12.0" silently matches the plain PyPI (CUDA
-# 13) wheel via --extra-index-url instead of failing loudly.
-#
-# --index-strategy unsafe-best-match: uv's default (first-index) stops at the
-# first index that has *any* version of the package, which was PyPI here —
-# it never even looked at the cu128 index for a better match. Both indexes
-# are trusted, so consider versions from both.
-#
-# The cu13 sync above already pulled in nvidia-nccl-cu13/-cudnn-cu13/etc as
-# torch 2.12.0's deps. torch 2.11.0+cu128 requires the cu12-suffixed builds
-# instead (different package names, e.g. nvidia-nccl-cu12==2.28.9) — but both
-# install their .so files under the same site-packages/nvidia/<lib>/ path, so
-# leaving the old ones in place risks a stale file winning (undefined-symbol
-# crashes at import, e.g. `libtorch_cuda.so: undefined symbol: ncclCommResume`).
-# Uninstall the cu13 CUDA-runtime cluster first so there's no ambiguity.
-RUN uv pip uninstall --python /opt/venv/bin/python \
-      nvidia-cublas nvidia-cuda-cupti nvidia-cuda-nvrtc nvidia-cuda-runtime \
-      nvidia-cudnn-cu13 nvidia-cufft nvidia-cufile nvidia-curand \
-      nvidia-cusolver nvidia-cusparse nvidia-cusparselt-cu13 \
-      nvidia-nccl-cu13 nvidia-nvjitlink nvidia-nvshmem-cu13 nvidia-nvtx \
-      cuda-bindings cuda-toolkit cuda-pathfinder \
-    && uv pip install --python /opt/venv/bin/python \
-      --index-url https://download.pytorch.org/whl/cu128 \
-      --extra-index-url https://pypi.org/simple \
-      --index-strategy unsafe-best-match \
-      --reinstall \
-      "torch==2.11.0+cu128" "torchvision==0.26.0+cu128"
+# Only now bring in the actual source -- this and the next layer are cheap
+# and rebuild in seconds since the big downloads above are already cached.
+COPY src/ src/
+RUN pip install --no-cache-dir --no-deps .
 
-ENTRYPOINT ["uv", "run"]
-CMD ["train", "Mjlab-Tinker"]
+CMD ["bash"]
