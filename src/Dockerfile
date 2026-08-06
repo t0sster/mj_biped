@@ -58,10 +58,25 @@ RUN uv sync --locked --no-dev
 # first index that has *any* version of the package, which was PyPI here —
 # it never even looked at the cu128 index for a better match. Both indexes
 # are trusted, so consider versions from both.
-RUN uv pip install --python /opt/venv/bin/python \
+#
+# The cu13 sync above already pulled in nvidia-nccl-cu13/-cudnn-cu13/etc as
+# torch 2.12.0's deps. torch 2.11.0+cu128 requires the cu12-suffixed builds
+# instead (different package names, e.g. nvidia-nccl-cu12==2.28.9) — but both
+# install their .so files under the same site-packages/nvidia/<lib>/ path, so
+# leaving the old ones in place risks a stale file winning (undefined-symbol
+# crashes at import, e.g. `libtorch_cuda.so: undefined symbol: ncclCommResume`).
+# Uninstall the cu13 CUDA-runtime cluster first so there's no ambiguity.
+RUN uv pip uninstall --python /opt/venv/bin/python \
+      nvidia-cublas nvidia-cuda-cupti nvidia-cuda-nvrtc nvidia-cuda-runtime \
+      nvidia-cudnn-cu13 nvidia-cufft nvidia-cufile nvidia-curand \
+      nvidia-cusolver nvidia-cusparse nvidia-cusparselt-cu13 \
+      nvidia-nccl-cu13 nvidia-nvjitlink nvidia-nvshmem-cu13 nvidia-nvtx \
+      cuda-bindings cuda-toolkit cuda-pathfinder \
+    && uv pip install --python /opt/venv/bin/python \
       --index-url https://download.pytorch.org/whl/cu128 \
       --extra-index-url https://pypi.org/simple \
       --index-strategy unsafe-best-match \
+      --reinstall \
       "torch==2.11.0+cu128" "torchvision==0.26.0+cu128"
 
 ENTRYPOINT ["uv", "run"]
