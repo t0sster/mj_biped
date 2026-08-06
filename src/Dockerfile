@@ -48,10 +48,15 @@ RUN uv sync --locked --no-dev
 # index instead. Must run *after* the sync above so it isn't reverted by
 # lockfile hash verification. mujoco-warp/warp-lang talk to the driver
 # directly (no bundled CUDA runtime of their own), so they're unaffected.
+#
+# Pinned to the exact "+cu128" local version: download.pytorch.org/whl/cu128
+# tops out at torch 2.11.0 (no 2.12.0 build exists there yet), and without
+# the "+cu128" suffix "torch==2.12.0" silently matches the plain PyPI (CUDA
+# 13) wheel via --extra-index-url instead of failing loudly.
 RUN uv pip install --python /opt/venv/bin/python \
       --index-url https://download.pytorch.org/whl/cu128 \
       --extra-index-url https://pypi.org/simple \
-      "torch==2.12.0" "torchvision==0.27.0"
+      "torch==2.11.0+cu128" "torchvision==0.26.0+cu128"
 
 ENTRYPOINT ["uv", "run"]
 CMD ["train", "Mjlab-Tinker"]
