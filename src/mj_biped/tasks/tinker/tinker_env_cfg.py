@@ -421,7 +421,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     primary=ContactMatch(
       mode="body",
       pattern=(
-        "base_link",
+        "torso",
         "link_l_pitch",
         "link_l_knee",
         "link_r_pitch",
