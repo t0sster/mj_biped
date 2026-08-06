@@ -59,38 +59,79 @@ _FEET_CONTACT_SENSOR = "feet_ground_contact"
 _ILLEGAL_CONTACT_SENSOR = "illegal_ground_contact"
 
 # TODO(tinker): значения по даташитам DM-6006 / DM-8006 пока не подставлены —
-# используются те же числа, что были в XML. Актюаторы отличаются только
-# effort_limit/armature/frictionloss/viscous_damping и параметрами задержки.
+# используются те же числа, что были в XML. Каждый сустав настроен отдельным
+# конфигом (обе ноги сразу, left/right симметричны), потому что armature и
+# редукция зависят от передаточного числа в конкретном суставе, а не только
+# от модели мотора.
 # Реальное распределение по суставам: yaw и ankle стоят на DM-6006, roll/pitch/knee — на DM-8006.
-_DM6006_JOINT_NAMES_EXPR = (".*_yaw", ".*_ankle")
-_DM8006_JOINT_NAMES_EXPR = (".*_roll", ".*_pitch", ".*_knee")
+_YAW_JOINT_NAMES_EXPR = (".*_yaw",)
+_ROLL_JOINT_NAMES_EXPR = (".*_roll",)
+_PITCH_JOINT_NAMES_EXPR = (".*_pitch",)
+_KNEE_JOINT_NAMES_EXPR = (".*_knee",)
+_ANKLE_JOINT_NAMES_EXPR = (".*_ankle",)
 
 _TINKER_ARTICULATION = EntityArticulationInfoCfg(
   actuators=(
+    # DM-6006
     BuiltinPositionActuatorCfg(
-      target_names_expr=_DM6006_JOINT_NAMES_EXPR,
+      target_names_expr=_YAW_JOINT_NAMES_EXPR,
       stiffness=15.0,
       damping=0.65,
-      effort_limit=12.0,
-      armature=0.01,
-      frictionloss=0.1,
-      viscous_damping=0.01,
+      effort_limit=4.0,
+      armature=0.0,
+      frictionloss=0.0,
+      viscous_damping=1.602,
       delay_min_lag=0,
-      delay_max_lag=4,
+      delay_max_lag=30,
+    ),
+    # DM-8006
+    BuiltinPositionActuatorCfg(
+      target_names_expr=_ROLL_JOINT_NAMES_EXPR,
+      stiffness=15.0,
+      damping=0.65,
+      effort_limit=8.0,
+      armature=0.0822,
+      frictionloss=0.487,
+      viscous_damping=0.0,
+      delay_min_lag=0,
+      delay_max_lag=30,
     ),
     BuiltinPositionActuatorCfg(
-      target_names_expr=_DM8006_JOINT_NAMES_EXPR,
+      target_names_expr=_PITCH_JOINT_NAMES_EXPR,
       stiffness=15.0,
       damping=0.65,
-      effort_limit=20.0,
-      armature=0.01,
-      frictionloss=0.1,
-      viscous_damping=0.01,
+      effort_limit=8.0,
+      armature=0.0577,
+      frictionloss=0.0,
+      viscous_damping=0.445,
       delay_min_lag=0,
-      delay_max_lag=4,
+      delay_max_lag=30,
+    ),
+    BuiltinPositionActuatorCfg(
+      target_names_expr=_KNEE_JOINT_NAMES_EXPR,
+      stiffness=15.0,
+      damping=0.65,
+      effort_limit=8.0,
+      armature=0.0108,
+      frictionloss=0.0,
+      viscous_damping=0.392,
+      delay_min_lag=0,
+      delay_max_lag=30,
+    ),
+    # DM-6006
+    BuiltinPositionActuatorCfg(
+      target_names_expr=_ANKLE_JOINT_NAMES_EXPR,
+      stiffness=15.0,
+      damping=0.65,
+      effort_limit=4.0,
+      armature=0.0153,
+      frictionloss=1.76,
+      viscous_damping=0.0,
+      delay_min_lag=0,
+      delay_max_lag=30,
     ),
   ),
-  soft_joint_pos_limit_factor=0.9,
+  soft_joint_pos_limit_factor=0.92,
 )
 
 
@@ -205,8 +246,8 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       rel_forward_envs=0.3,
       heading_command=False,
       ranges=velocity_mdp.UniformVelocityCommandCfg.Ranges(
-        lin_vel_x=(-0.25, 0.5),
-        lin_vel_y=(-0.2, 0.2),
+        lin_vel_x=(-0.5, 0.5),
+        lin_vel_y=(-0.4, 0.4),
         ang_vel_z=(-0.6, 0.6),
       ),
     ),
