@@ -35,9 +35,11 @@ class UniformGaitCommand(CommandTerm):
   def command(self) -> torch.Tensor:
     return self._command
 
-  def compute(self, dt: float) -> None:
+  def compute(
+    self, dt: float | torch.Tensor, env_ids: torch.Tensor | None = None
+  ) -> None:
     self._phase = torch.remainder(self._phase + dt * self._frequency, 1.0)
-    super().compute(dt)
+    super().compute(dt, env_ids)
 
   def _update_metrics(self) -> None:
     pass
@@ -50,7 +52,9 @@ class UniformGaitCommand(CommandTerm):
     self._duty_cycle[env_ids] = r.uniform_(duty_cycle_min, duty_cycle_max)
     self._phase[env_ids] = r.uniform_(0.0, 1.0)
 
-  def _update_command(self) -> None:
+  def _update_command(self, env_ids: torch.Tensor | None = None) -> None:
+    # Pure function of the current state; refreshing all envs is safe.
+    del env_ids
     left_phase = self._phase
     right_phase = torch.remainder(self._phase + 0.5, 1.0)
 
