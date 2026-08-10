@@ -45,9 +45,10 @@ class UniformGaitCommand(CommandTerm):
   def _resample_command(self, env_ids: torch.Tensor) -> None:
     frequency_min, frequency_max = self.cfg.ranges.frequencies
     duty_cycle_min, duty_cycle_max = self.cfg.ranges.duty_cycle
-    self._frequency[env_ids].uniform_(frequency_min, frequency_max)
-    self._duty_cycle[env_ids].uniform_(duty_cycle_min, duty_cycle_max)
-    self._phase[env_ids].uniform_(0.0, 1.0)
+    r = torch.empty(len(env_ids), device=self.device)
+    self._frequency[env_ids] = r.uniform_(frequency_min, frequency_max)
+    self._duty_cycle[env_ids] = r.uniform_(duty_cycle_min, duty_cycle_max)
+    self._phase[env_ids] = r.uniform_(0.0, 1.0)
 
   def _update_command(self) -> None:
     left_phase = self._phase
