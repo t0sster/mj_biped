@@ -3,6 +3,7 @@ from __future__ import annotations
 import torch
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.sensor import ContactSensor
+from mjlab.utils.lab_api.math import wrap_to_pi
 
 
 def swing_foot_force_l2(
@@ -96,6 +97,28 @@ def base_vertical_velocity_l2(
   """Penalize vertical base motion."""
   asset = env.scene[asset_cfg.name]
   return torch.square(asset.data.root_link_lin_vel_b[:, 2])
+
+
+def heading_travel_alignment(
+  env,
+  asset_cfg: SceneEntityCfg,
+  std: float,
+  min_speed: float = 0.1,
+) -> torch.Tensor:
+  """Reward the base facing the direction it is actually moving in.
+
+  Compares world-frame heading (asset.data.heading_w) against the heading of
+  the world-frame horizontal velocity vector, so the robot walks face-first
+  instead of crab-walking sideways. Gated by min_speed since travel direction
+  is undefined/noisy near-zero speed.
+  """
+  asset = env.scene[asset_cfg.name]
+  vel_xy = asset.data.root_link_lin_vel_w[:, :2]
+  speed = torch.linalg.norm(vel_xy, dim=-1)
+  travel_heading = torch.atan2(vel_xy[:, 1], vel_xy[:, 0])
+  heading_error = wrap_to_pi(travel_heading - asset.data.heading_w)
+  moving_mask = (speed > min_speed).float()
+  return torch.exp(-torch.square(heading_error) / std**2) * moving_mask
 
 
 def _moving_command_mask(

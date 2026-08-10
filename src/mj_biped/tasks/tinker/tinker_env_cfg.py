@@ -9,7 +9,9 @@ from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp as env_mdp
 from mjlab.envs.mdp.actions import JointPositionActionCfg
+from mjlab.envs.mdp.events import reset_scene_to_default
 from mjlab.managers.action_manager import ActionTermCfg
+from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.command_manager import CommandTermCfg
 from mjlab.managers.observation_manager import (
   ObservationGroupCfg,
@@ -263,7 +265,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
   rewards = {
     "track_linear_velocity": RewardTermCfg(
       func=velocity_mdp.track_linear_velocity,
-      weight=3.5,
+      weight=2.5,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
@@ -277,6 +279,15 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
         "std": math.sqrt(0.2),
+      },
+    ),
+    "heading_travel_alignment": RewardTermCfg(
+      func=mdp.heading_travel_alignment,
+      weight=1.5,
+      params={
+        "asset_cfg": _ROBOT_CFG,
+        "std": math.sqrt(0.2),
+        "min_speed": 0.1,
       },
     ),
     "posture": RewardTermCfg(
@@ -403,6 +414,14 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
   }
 
+  events: dict[str, EventTermCfg] = {
+    "reset_scene_to_default": EventTermCfg(
+      func=reset_scene_to_default,
+      mode="reset",
+    ),
+    "foot_friction": mdp.foot_friction,
+  }
+
   feet_contact_sensor = ContactSensorCfg(
     name=_FEET_CONTACT_SENSOR,
     primary=ContactMatch(
@@ -448,6 +467,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     commands=commands,
     rewards=rewards,
     terminations=terminations,
+    events=events,
     metrics={},
     viewer=ViewerConfig(
       origin_type=ViewerConfig.OriginType.ASSET_BODY,
