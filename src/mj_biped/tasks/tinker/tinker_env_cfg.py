@@ -269,7 +269,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
-        "std": math.sqrt(0.02),
+        "std": math.sqrt(0.05),
       },
     ),
     "track_angular_velocity": RewardTermCfg(
