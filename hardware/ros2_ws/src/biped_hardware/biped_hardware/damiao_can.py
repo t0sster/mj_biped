@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 CAN_CHANNEL = 'can0'    # сетевой интерфейс SocketCAN
 CAN_MASTER_ID = 0       # Master ID (Frame ID обратной связи, задаётся в 调试助手)
 
-# Активные моторы: список CAN ID
-MOTOR_IDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+# CAN ID моторов задаются там, где драйвер используется:
+# в hardware_node.MOTOR_IDS (ROS2) и в MOTOR_IDS стендовых скриптов mcp2515/.
 
 # Диапазоны MIT mode (должны совпадать с настройками в 调试助手)
 P_MIN, P_MAX   = -12.5, 12.5   # рад
