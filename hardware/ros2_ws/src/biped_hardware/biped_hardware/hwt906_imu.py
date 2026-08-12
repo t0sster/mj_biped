@@ -99,6 +99,7 @@ class Hwt906Imu:
         self.quaternion = [1.0, 0.0, 0.0, 0.0]
         self.temperature = 0.0
         self.packet_count = 0          # сколько корректных пакетов принято
+        self.packet_counts = {}        # то же самое, но по типам пакетов: {тип: сколько}
 
         # датчик может не присылать кватернион — тогда считаем его из углов
         self._quaternion_from_sensor = False
@@ -130,8 +131,11 @@ class Hwt906Imu:
             result = parse_packet(bytes(buffer))
             buffer.clear()
             if result is not None:
-                self._update_values(*result)
+                packet_type, raw_values = result
+                self._update_values(packet_type, raw_values)
                 self.packet_count += 1
+                self.packet_counts[packet_type] = \
+                    self.packet_counts.get(packet_type, 0) + 1
 
     def _update_values(self, packet_type: int, raw_values) -> None:
         """Переводит сырые int16 в физические величины."""
@@ -200,13 +204,22 @@ if __name__ == "__main__":
             while True:
                 time.sleep(0.5)
                 roll, pitch, yaw = imu.rpy
+
+                # какие типы пакетов реально шлёт датчик: нужны 0x51, 0x52, 0x53.
+                # если какого-то типа нет — он отключён в настройках датчика
+                types = " ".join(
+                    f"0x{ptype:02X}:{count}"
+                    for ptype, count in sorted(imu.packet_counts.items())
+                )
+
                 print(
                     f"rpy=({math.degrees(roll):+7.2f} "
                     f"{math.degrees(pitch):+7.2f} "
                     f"{math.degrees(yaw):+7.2f})°  "
                     f"gyro={[f'{g:+.3f}' for g in imu.gyroscope]}  "
                     f"accel={[f'{a:+.2f}' for a in imu.accelerometer]}  "
-                    f"T={imu.temperature:.1f}°C"
+                    f"T={imu.temperature:.1f}°C  "
+                    f"пакеты: {types}"
                 )
         except KeyboardInterrupt:
             print("\nОстановлено пользователем")
