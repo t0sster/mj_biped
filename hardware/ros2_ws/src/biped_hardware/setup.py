@@ -26,6 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             'hardware_node = biped_hardware.hardware_node:main',
+            'imu_configure = biped_hardware.imu_configure:main',
         ],
     },
 )

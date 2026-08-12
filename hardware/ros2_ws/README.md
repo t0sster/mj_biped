@@ -73,9 +73,24 @@ ros2 launch biped_hardware hardware.launch.py
 конкретная железка:
 
 ```bash
-python3 src/biped_hardware/biped_hardware/hwt906_imu.py   # поток углов с IMU
-python3 src/biped_hardware/biped_hardware/damiao_can.py   # enable/MIT/disable одного мотора
+python3 -u src/biped_hardware/biped_hardware/hwt906_imu.py   # поток данных с IMU
+python3 src/biped_hardware/biped_hardware/damiao_can.py      # enable/MIT/disable одного мотора
 ```
+
+В конце каждой строки вывода IMU печатается, сколько пакетов какого типа пришло,
+например `пакеты: 0x51:38643 0x52:38642 0x53:38642`. Для работы ноды нужны все
+три: `0x51` — ускорение и температура, `0x52` — гироскоп, `0x53` — углы.
+
+Если какого-то типа в списке нет, датчик его просто не выводит — это настройка
+самого HWT906. Включить нужные пакеты:
+
+```bash
+ros2 run biped_hardware imu_configure
+```
+
+Скрипт записывает набор пакетов в память датчика (какие именно — константа
+`OUTPUT_PACKETS` в `imu_configure.py`), то есть меняет настройку самого
+устройства, а не текущий запуск.
 
 Стендовые скрипты для моторов (чирп, обнуление, аварийное выключение) лежат
 в `hardware/mcp2515/` и используют драйвер из этого пакета, так что перед их
