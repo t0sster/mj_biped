@@ -9,7 +9,7 @@ from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp as env_mdp
 from mjlab.envs.mdp.actions import JointPositionActionCfg
-from mjlab.envs.mdp.events import reset_scene_to_default
+from mjlab.envs.mdp import dr, events as event_fns
 from mjlab.managers.action_manager import ActionTermCfg
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.command_manager import CommandTermCfg
@@ -22,6 +22,7 @@ from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.scene import SceneCfg
 from mjlab.sensor import ContactMatch, ContactSensorCfg
+from mjlab.sensor import RayCastSensorCfg, GridPatternCfg, ObjRef
 from mjlab.sim import MujocoCfg, SimulationCfg
 from mjlab.tasks.velocity import mdp as velocity_mdp
 from mjlab.terrains import TerrainEntityCfg
@@ -60,12 +61,9 @@ _PLAY_NUM_ENVS = 1
 _FEET_CONTACT_SENSOR = "feet_ground_contact"
 _ILLEGAL_CONTACT_SENSOR = "illegal_ground_contact"
 
-# TODO(tinker): значения по даташитам DM-6006 / DM-8006 пока не подставлены —
-# используются те же числа, что были в XML. Каждый сустав настроен отдельным
-# конфигом (обе ноги сразу, left/right симметричны), потому что armature и
-# редукция зависят от передаточного числа в конкретном суставе, а не только
-# от модели мотора.
-# Реальное распределение по суставам: yaw и ankle стоят на DM-6006, roll/pitch/knee — на DM-8006.
+_HEIGH_RAYCAST_SENSOR = "ray_cast_sensor"
+
+
 _YAW_JOINT_NAMES_EXPR = (".*_yaw",)
 _ROLL_JOINT_NAMES_EXPR = (".*_roll",)
 _PITCH_JOINT_NAMES_EXPR = (".*_pitch",)
@@ -263,6 +261,15 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
   }
 
   rewards = {
+    "base_height_track": RewardTermCfg(
+      func=mdp.base_height,
+      weight=-1.0,
+      params={
+        "asset_cfg": _ROBOT_CFG,
+        "target_height": 0.28,
+      }
+    ),
+
     "track_linear_velocity": RewardTermCfg(
       func=velocity_mdp.track_linear_velocity,
       weight=3.5,
@@ -283,10 +290,10 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "heading_travel_alignment": RewardTermCfg(
       func=mdp.heading_travel_alignment,
-      weight=1.5,
+      weight=2.5,
       params={
         "asset_cfg": _ROBOT_CFG,
-        "std": math.sqrt(0.2),
+        "std": math.sqrt(0.05),
         "min_speed": 0.1,
       },
     ),
@@ -414,13 +421,123 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
   }
 
-  events: dict[str, EventTermCfg] = {
-    "reset_scene_to_default": EventTermCfg(
-      func=reset_scene_to_default,
-      mode="reset",
-    ),
-    "foot_friction": mdp.foot_friction,
+  events = {
+      # Reset all entities to their default state each episode.
+      "reset_scene": EventTermCfg(
+          func=event_fns.reset_scene_to_default,
+          mode="reset",
+      ),
+      # Randomize foot friction once at startup.
+      "foot_friction": EventTermCfg(
+          func=dr.geom_friction,
+          mode="startup",
+          params={
+              "asset_cfg": SceneEntityCfg("tinker", geom_names=["left_foot_collision", "right_foot_collision"]),
+              "ranges": (0.3, 1.2),
+              "operation": "abs",
+          },
+      ),
+      # Push the robot at random intervals during the episode.
+      "push_robot": EventTermCfg(
+          func=event_fns.push_by_setting_velocity,
+          mode="interval",
+          interval_range_s=(1.0, 5.0),
+          params={
+              "velocity_range": {"x": (-0.15, 0.15), "y": (-0.15, 0.15)},
+              "asset_cfg": _ROBOT_CFG,
+          },
+      ),
+      # Transient random impulses with duration and cooldown.
+      "impulse": EventTermCfg(
+          func=event_fns.apply_body_impulse,
+          mode="step",
+          params={
+              "force_range": (-15.0, 15.0),
+              "torque_range": (0.0, 0.0),
+              "duration_s": (0.05, 0.1),
+              "cooldown_s": (1.0, 5.0),
+              "asset_cfg": SceneEntityCfg("tinker", body_names=("base_link")),
+          },
+      ),
+      "body_mass": EventTermCfg(
+        func=dr.body_mass,
+        mode="reset",
+        params={
+          "asset_cfg": SceneEntityCfg("tinker", body_names=(".*")),
+          "operation": "scale",
+          "ranges": (0.8, 1.2),
+        }
+      ),
+      "encoder_bias": EventTermCfg(
+        mode="startup",
+        func=dr.encoder_bias,
+        params={
+          "asset_cfg": SceneEntityCfg("tinker"),
+          "bias_range": (-0.015, 0.015),
+        },
+      ),
+      "base_com": EventTermCfg(
+        mode="startup",
+        func=dr.body_com_offset,
+        params={
+          "asset_cfg": SceneEntityCfg("tinker", body_names=("base_link")),  # Set per-robot.
+          "operation": "add",
+          "ranges": {
+            0: (-0.025, 0.025),
+            1: (-0.025, 0.025),
+            2: (-0.03, 0.03),
+          },
+        },
+      ),
+      "armature": EventTermCfg(
+        mode="startup",
+        func=dr.joint_armature,
+        params={
+          "asset_cfg": SceneEntityCfg("tinker", joint_names=(".*")),
+          "operation": "scale",
+          "ranges": (0.8, 1.2),
+        },
+      ),
+      "frictioloss": EventTermCfg(
+        mode="startup",
+        func=dr.joint_friction,
+        params={
+          "asset_cfg": SceneEntityCfg("tinker", joint_names=(".*")),
+          "operation": "scale",
+          "ranges": (0.8, 1.2),
+        },
+      ),
+      "damping": EventTermCfg(
+        mode="startup",
+        func=dr.joint_damping,
+        params={
+          "asset_cfg": SceneEntityCfg("tinker", joint_names=(".*")),
+          "operation": "scale",
+          "ranges": (0.8, 1.2),
+        },
+      ),
+      "effort_limits": EventTermCfg(
+        mode="startup",
+        func=dr.effort_limits,
+        params={
+          "asset_cfg": _ROBOT_ACTUATOR_CFG,
+          "operation": "scale",
+          "effort_limit_range": (0.8, 1.2),
+        },
+      ),
   }
+
+  raycast_cfg = RayCastSensorCfg(
+      name=_HEIGH_RAYCAST_SENSOR,
+      frame=ObjRef(type="body", name="base_link", entity="tinker"),
+      pattern=GridPatternCfg(
+          size=(0.2, 0.2),
+          resolution=0.1,
+          direction=(0.0, 0.0, -1.0),
+      ),
+      ray_alignment="yaw",
+      max_distance=2.0,
+  )
 
   feet_contact_sensor = ContactSensorCfg(
     name=_FEET_CONTACT_SENSOR,
@@ -458,7 +575,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     scene=SceneCfg(
       terrain=TerrainEntityCfg(terrain_type="plane"),
       entities={"tinker": _get_tinker_cfg()},
-      sensors=(feet_contact_sensor, illegal_contact_sensor),
+      sensors=(feet_contact_sensor, illegal_contact_sensor, raycast_cfg),
       num_envs=num_envs,
       env_spacing=2.0,
     ),

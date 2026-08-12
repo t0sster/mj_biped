@@ -129,3 +129,13 @@ def _moving_command_mask(
   command = env.command_manager.get_command(command_name)
   magnitude = torch.linalg.norm(command[:, :2], dim=1) + torch.abs(command[:, 2])
   return (magnitude > threshold).float()
+
+
+def base_height(
+    env,
+    target_height: float,
+    asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+  asset = env.scene[asset_cfg.name]
+  height = asset.data.root_link_pos_w[:, 2]
+  return torch.square(height - target_height)

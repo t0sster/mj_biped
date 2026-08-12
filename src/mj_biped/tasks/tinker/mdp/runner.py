@@ -37,7 +37,7 @@ def tinker_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     experiment_name="tinker",
     save_interval=100,
     num_steps_per_env=24,
-    max_iterations=701,
+    max_iterations=3001,
     logger="tensorboard",
     upload_model=False,
   )
