@@ -250,16 +250,16 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       rel_forward_envs=0.3,
       heading_command=False,
       ranges=velocity_mdp.UniformVelocityCommandCfg.Ranges(
-        lin_vel_x=(-0.5, 0.5),
-        lin_vel_y=(-0.4, 0.4),
-        ang_vel_z=(-0.6, 0.6),
+        lin_vel_x=(-0.3, 0.3),
+        lin_vel_y=(-0.2, 0.2),
+        ang_vel_z=(-0.3, 0.3),
       ),
     ),
     "gait": mdp.UniformGaitCommandCfg(
       resampling_time_range=(1.0e6, 1.0e6),
       ranges=mdp.UniformGaitCommandCfg.Ranges(
         frequencies=(0.8, 1.4),
-        duty_cycle=(0.6, 0.6),
+        duty_cycle=(0.45, 0.75),
       ),
     ),
   }
