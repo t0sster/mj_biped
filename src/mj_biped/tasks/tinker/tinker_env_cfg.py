@@ -217,6 +217,10 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
           func=velocity_mdp.foot_contact_forces,
           params={"sensor_name": _FEET_CONTACT_SENSOR},
         ),
+        "base_height": ObservationTermCfg(
+          func=mdp.current_base_height,
+          params={"asset_cfg": _ROBOT_CFG},
+        ),
       },
       enable_corruption=False,
     ),

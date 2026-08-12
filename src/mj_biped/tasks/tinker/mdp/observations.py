@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from mjlab.entity import Entity
+from mjlab.managers.scene_entity_config import SceneEntityCfg
+
 import torch
 
 
@@ -16,3 +19,8 @@ def gait_phase_observation(env, command_name: str) -> torch.Tensor:
     ),
     dim=1,
   )
+
+def current_base_height(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
+  asset = env.scene[asset_cfg.name]
+  height = asset.data.root_link_pos_w[:, 2:3]
+  return height
