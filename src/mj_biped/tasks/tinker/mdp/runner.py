@@ -24,7 +24,7 @@ def tinker_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
       value_loss_coef=1.0,
       use_clipped_value_loss=True,
       clip_param=0.2,
-      entropy_coef=0.02,
+      entropy_coef=0.01,
       num_learning_epochs=5,
       num_mini_batches=8,
       learning_rate=5.0e-4,
