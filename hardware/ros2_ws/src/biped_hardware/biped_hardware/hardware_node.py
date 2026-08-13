@@ -24,7 +24,7 @@ from rclpy.node import Node
 
 from tinker_msgs.msg import ControlCmd, IMUState, LowCmd, LowState, MotorState
 
-from biped_hardware.damiao_can import DamiaoMotorBus
+from biped_hardware.damiao_can import CAN_MASTER_ID, DamiaoMotorBus
 from biped_hardware.hwt906_imu import Hwt906Imu
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ class HardwareNode(Node):
         self.received_cmd_count = 0
 
         # значения счётчиков на момент прошлого лога — из них считаем частоту
-        self.counts_at_last_log = (0, 0, 0, 0)
+        self.counts_at_last_log = (0, 0, 0, 0, 0)
 
         # ── Подписки ──────────────────────────────────────────────────────────
         self.create_subscription(
@@ -224,9 +224,10 @@ class HardwareNode(Node):
             self.received_cmd_count,
             self.motor_feedback_count,
             self.imu.packet_count if self.imu else 0,
+            self.motor_bus.rx_frame_count,
             self.motor_bus.tx_error_count + self.motor_bus.error_frame_count,
         )
-        cmd_rate, feedback_rate, imu_rate, error_rate = [
+        cmd_rate, feedback_rate, imu_rate, rx_rate, error_rate = [
             now - before for now, before in zip(counts_now, self.counts_at_last_log)
         ]
         self.counts_at_last_log = counts_now
@@ -235,15 +236,34 @@ class HardwareNode(Node):
             f"команд принято: {cmd_rate}/с, "
             f"фидбек моторов: {feedback_rate}/с, "
             f"пакетов IMU: {imu_rate}/с, "
+            f"кадров с шины: {rx_rate}/с, "
             f"ошибок CAN: {error_rate}/с, "
             f"шина: {self.motor_bus.get_bus_state_text()}"
         )
 
-        # молчат все моторы — самая частая причина, стоит подсказать
-        if feedback_rate == 0:
+        # молчит IMU — обычно порт занят другой программой
+        if self.imu and imu_rate == 0:
             self.get_logger().warn(
-                "моторы не отвечают: проверьте питание, can0 и CAN_MASTER_ID"
+                f"IMU молчит: {self.imu.last_error_text}" if self.imu.last_error_text
+                else "IMU молчит: не занят ли порт другой программой (lsof /dev/ttyAMA0)"
             )
+
+        # молчат все моторы — подсказываем, куда смотреть
+        if feedback_rate == 0:
+            other_ids = self.motor_bus.other_frame_ids
+            if other_ids:
+                # кадры с шины идут, но не с тем ID, который мы считаем своим
+                ids_text = " ".join(f"0x{frame_id:03X}" for frame_id in sorted(other_ids))
+                self.get_logger().warn(
+                    f"фидбека нет, но на шине есть кадры с ID: {ids_text}. "
+                    f"Ждём ID 0x{CAN_MASTER_ID:03X} — поправьте CAN_MASTER_ID "
+                    f"в damiao_can.py или Master ID в моторах"
+                )
+            else:
+                self.get_logger().warn(
+                    "с шины не приходит ни одного кадра: проверьте питание "
+                    "моторов, их CAN ID и что can0 поднят на 1 Мбит/с"
+                )
 
     # ── Завершение ────────────────────────────────────────────────────────────
 

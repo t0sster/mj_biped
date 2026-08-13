@@ -100,6 +100,7 @@ class Hwt906Imu:
         self.temperature = 0.0
         self.packet_count = 0          # сколько корректных пакетов принято
         self.packet_counts = {}        # то же самое, но по типам пакетов: {тип: сколько}
+        self.last_error_text = ''      # если чтение порта упало — текст ошибки
 
         # датчик может не присылать кватернион — тогда считаем его из углов
         self._quaternion_from_sensor = False
@@ -113,6 +114,14 @@ class Hwt906Imu:
 
     def _read_loop(self) -> None:
         """Собирает байты в пакеты по 11 штук и обновляет поля объекта."""
+        try:
+            self._read_packets()
+        except Exception as error:
+            # без этого поток умирает молча и данные просто перестают идти
+            self.last_error_text = str(error)
+            print(f"IMU: чтение порта прервано — {error}")
+
+    def _read_packets(self) -> None:
         buffer = bytearray()
 
         while self._is_running:

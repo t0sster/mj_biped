@@ -207,9 +207,11 @@ class DamiaoMotorBus:
         self.states: Dict[int, MotorState] = {}
 
         # диагностика шины, растёт всё время работы
+        self.rx_frame_count = 0      # принято кадров, включая чужие
         self.tx_error_count = 0      # не удалось отправить кадр
         self.error_frame_count = 0   # шина прислала кадр ошибки
         self.last_error_text = ''
+        self.other_frame_ids = set()  # ID кадров, которые мы отбросили как чужие
 
         self._bus = can.interface.Bus(
             channel=CAN_CHANNEL,
@@ -336,7 +338,13 @@ class DamiaoMotorBus:
                 self.error_callback(error_text)
             return
 
+        self.rx_frame_count += 1
+
+        # фидбек приходит с Frame ID = CAN_MASTER_ID, всё прочее не наше.
+        # ID чужих кадров запоминаем: если моторы отвечают, а фидбека нет,
+        # значит в моторах прошит другой Master ID и его видно в этом списке
         if msg.arbitration_id != CAN_MASTER_ID:
+            self.other_frame_ids.add(msg.arbitration_id)
             return
         state = decode_feedback(msg)
         if state is None:
