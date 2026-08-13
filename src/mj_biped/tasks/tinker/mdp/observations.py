@@ -34,12 +34,13 @@ def builtin_sensor_data(env, sensor_name: str) -> torch.Tensor:
 def imu_rpy(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
   """Roll/pitch/yaw of the imu site, in the site's own (chip) local frame.
 
-  Matches the convention a real IMU's onboard fusion (accel+gyro+magnetometer)
-  would report: roll about the site's local X, pitch about local Y, yaw about
-  local Z. The site's quat in the XML already encodes the chip's physical
-  mounting, so this lines up with the real sensor's raw axis convention.
+  roll/pitch/yaw slots match the real chip's field order as-is; only roll's
+  sign is flipped. Verified against real-robot readings in matched poses:
+  pitch and the roll *magnitude* lined up with the plain euler_xyz_from_quat
+  output, but roll came out with the opposite sign (real chip likely uses a
+  different handedness/reference for roll than this Z-up computation).
   """
   asset = env.scene[asset_cfg.name]
   site_quat = asset.data.site_quat_w[:, asset_cfg.site_ids[0]]
   roll, pitch, yaw = euler_xyz_from_quat(site_quat)
-  return torch.stack((roll, pitch, yaw), dim=-1)
+  return torch.stack((-roll, pitch, yaw), dim=-1)
