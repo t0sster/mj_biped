@@ -13,6 +13,10 @@ wheels/
 logs/
 wandb/
 
+# ROS2 / colcon
+install/
+log/
+
 # Environment
 .vscode/
 .codex/

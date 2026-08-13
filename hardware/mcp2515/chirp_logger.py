@@ -12,7 +12,7 @@ ACTIVE_SLOTS, на нём — отправленная команда (target) �
 позиции мотора. Число графиков подстраивается под len(ACTIVE_SLOTS)
 автоматически.
 
-Запускать из этой же папки (нужен активный can0, см. шапку damiao_can.py):
+Запускать после source ros2_ws/install/setup.bash (нужен активный can0, см. шапку damiao_can.py):
     python3 chirp_logger.py
 """
 
@@ -22,13 +22,13 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from damiao_can import DamiaoMotorBus, MotorState
+from biped_hardware.damiao_can import DamiaoMotorBus, MotorState
 
 # ─────────────────────────────────────────────────────────────────────────────
 # КОНФИГУРАЦИЯ — меняйте здесь
 # ─────────────────────────────────────────────────────────────────────────────
 
-# 10 слотов — CAN ID моторов: 1..5 левая нога, 6..10 правая (как в damiao_can.MOTOR_IDS).
+# 10 слотов — CAN ID моторов: 1..5 левая нога, 6..10 правая (как в hardware_node.MOTOR_IDS).
 MOTOR_IDS: List[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 # Какие СЛОТЫ (индексы 0..9 в MOTOR_IDS выше) гонять чирпом в этом запуске.

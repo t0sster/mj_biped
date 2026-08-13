@@ -118,6 +118,22 @@ def main() -> None:
     print(f"Открыт {IMU_PORT} @ {IMU_BAUDRATE}")
 
     try:
+        # сначала читаем — так сразу видно, доходят ли команды до датчика
+        value_before = read_register(port, REGISTER_RSW)
+        if value_before is None:
+            print(
+                "Датчик не ответил на запрос регистра — команды до него не доходят.\n"
+                "Данные при этом идут, значит линия RX датчик → Pi рабочая, "
+                "а обратная (Pi TX → RX датчика) нет.\n"
+                "Что проверить:\n"
+                "  sudo lsof /dev/ttyAMA0                  — порт занят другой программой?\n"
+                "  systemctl status serial-getty@ttyAMA0   — на порту висит консоль?\n"
+                "  отключить датчик, замкнуть TX и RX на разъёме Pi — тогда в порт\n"
+                "  должны возвращаться отправленные байты, это проверяет TX самой Pi\n"
+            )
+        else:
+            print(f"Сейчас в датчике RSW = 0x{value_before:04X}")
+
         print(f"Включаю пакеты {OUTPUT_PACKETS}, RSW = 0x{rsw_value:04X}")
         write_register(port, REGISTER_RSW, rsw_value)
         write_register(port, REGISTER_SAVE, 0x0000)
@@ -127,12 +143,7 @@ def main() -> None:
         actual_value = read_register(port, REGISTER_RSW)
 
         if actual_value is None:
-            print(
-                "Датчик не ответил на запрос регистра.\n"
-                "Скорее всего команды до него не доходят: проверьте, что TX "
-                "Raspberry Pi подключён к RX датчика (для приёма данных хватает "
-                "одного провода RX, а для настройки нужен и второй)."
-            )
+            print("Датчик не ответил, применилась ли настройка — неизвестно")
         elif actual_value == rsw_value:
             print(f"Готово: в датчике RSW = 0x{actual_value:04X}")
         else:

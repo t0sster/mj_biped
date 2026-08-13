@@ -6,20 +6,20 @@
 "CAN TX error: No buffer space available", чтобы снять момент с моторов,
 не дожидаясь штатного завершения теста.
 
-Запускать из этой же папки (нужен активный can0):
+Запускать после source ros2_ws/install/setup.bash (нужен активный can0):
     python3 disable_all.py
 """
 
 import time
 from typing import List
 
-from damiao_can import DamiaoMotorBus
+from biped_hardware.damiao_can import DamiaoMotorBus
 
 # ─────────────────────────────────────────────────────────────────────────────
 # КОНФИГУРАЦИЯ — меняйте здесь
 # ─────────────────────────────────────────────────────────────────────────────
 
-# 10 слотов — CAN ID моторов: 1..5 левая нога, 6..10 правая (как в damiao_can.MOTOR_IDS).
+# 10 слотов — CAN ID моторов: 1..5 левая нога, 6..10 правая (как в hardware_node.MOTOR_IDS).
 MOTOR_IDS: List[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 # Какие СЛОТЫ отключать. По умолчанию — все 10.
