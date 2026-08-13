@@ -22,7 +22,7 @@ from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.scene import SceneCfg
 from mjlab.sensor import ContactMatch, ContactSensorCfg
-from mjlab.sensor import RayCastSensorCfg, GridPatternCfg, ObjRef
+from mjlab.sensor import BuiltinSensorCfg, RayCastSensorCfg, GridPatternCfg, ObjRef
 from mjlab.sim import MujocoCfg, SimulationCfg
 from mjlab.tasks.velocity import mdp as velocity_mdp
 from mjlab.terrains import TerrainEntityCfg
@@ -55,11 +55,14 @@ _FOOT_SITE_CFG = SceneEntityCfg(
   site_names=("left_foot", "right_foot"),
   preserve_order=True,
 )
+_IMU_SITE_CFG = SceneEntityCfg("tinker", site_names=("imu",))
 
 _DECIMATION = 10
 _PLAY_NUM_ENVS = 1
 _FEET_CONTACT_SENSOR = "feet_ground_contact"
 _ILLEGAL_CONTACT_SENSOR = "illegal_ground_contact"
+_IMU_GYRO_SENSOR = "tinker/imu_gyro"
+_IMU_ACCEL_SENSOR = "tinker/imu_accel"
 
 _HEIGH_RAYCAST_SENSOR = "ray_cast_sensor"
 
@@ -168,20 +171,20 @@ def _get_tinker_cfg() -> EntityCfg:
 
 def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
   actor_terms = {
-    "base_lin_vel": ObservationTermCfg(
-      func=env_mdp.base_lin_vel,
-      params={"asset_cfg": _ROBOT_CFG},
-      noise=UniformNoiseCfg(n_min=-0.1, n_max=0.1),
-    ),
-    "base_ang_vel": ObservationTermCfg(
-      func=env_mdp.base_ang_vel,
-      params={"asset_cfg": _ROBOT_CFG},
-      noise=UniformNoiseCfg(n_min=-0.1, n_max=0.1),
-    ),
-    "projected_gravity": ObservationTermCfg(
-      func=env_mdp.projected_gravity,
-      params={"asset_cfg": _ROBOT_CFG},
+    "imu_rpy": ObservationTermCfg(
+      func=mdp.imu_rpy,
+      params={"asset_cfg": _IMU_SITE_CFG},
       noise=UniformNoiseCfg(n_min=-0.05, n_max=0.05),
+    ),
+    "imu_gyro": ObservationTermCfg(
+      func=mdp.builtin_sensor_data,
+      params={"sensor_name": _IMU_GYRO_SENSOR},
+      noise=UniformNoiseCfg(n_min=-0.1, n_max=0.1),
+    ),
+    "imu_accel": ObservationTermCfg(
+      func=mdp.builtin_sensor_data,
+      params={"sensor_name": _IMU_ACCEL_SENSOR},
+      noise=UniformNoiseCfg(n_min=-0.3, n_max=0.3),
     ),
     "velocity_command": ObservationTermCfg(
       func=env_mdp.generated_commands,
@@ -219,6 +222,12 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         ),
         "base_height": ObservationTermCfg(
           func=mdp.current_base_height,
+          params={"asset_cfg": _ROBOT_CFG},
+        ),
+        # Privileged: real base velocity isn't directly measurable on hardware
+        # (no direct sensor for it — actor gets imu_accel/imu_gyro instead).
+        "base_lin_vel": ObservationTermCfg(
+          func=env_mdp.base_lin_vel,
           params={"asset_cfg": _ROBOT_CFG},
         ),
       },
@@ -543,6 +552,17 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       max_distance=2.0,
   )
 
+  imu_gyro_sensor = BuiltinSensorCfg(
+    name="imu_gyro",
+    sensor_type="gyro",
+    obj=ObjRef(type="site", name="imu", entity="tinker"),
+  )
+  imu_accel_sensor = BuiltinSensorCfg(
+    name="imu_accel",
+    sensor_type="accelerometer",
+    obj=ObjRef(type="site", name="imu", entity="tinker"),
+  )
+
   feet_contact_sensor = ContactSensorCfg(
     name=_FEET_CONTACT_SENSOR,
     primary=ContactMatch(
@@ -579,7 +599,13 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     scene=SceneCfg(
       terrain=TerrainEntityCfg(terrain_type="plane"),
       entities={"tinker": _get_tinker_cfg()},
-      sensors=(feet_contact_sensor, illegal_contact_sensor, raycast_cfg),
+      sensors=(
+        feet_contact_sensor,
+        illegal_contact_sensor,
+        raycast_cfg,
+        imu_gyro_sensor,
+        imu_accel_sensor,
+      ),
       num_envs=num_envs,
       env_spacing=2.0,
     ),
