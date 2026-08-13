@@ -207,6 +207,7 @@ class DamiaoMotorBus:
         self.states: Dict[int, MotorState] = {}
 
         # диагностика шины, растёт всё время работы
+        self.tx_frame_count = 0      # отправлено кадров
         self.rx_frame_count = 0      # принято кадров, включая чужие
         self.tx_error_count = 0      # не удалось отправить кадр
         self.error_frame_count = 0   # шина прислала кадр ошибки
@@ -312,6 +313,7 @@ class DamiaoMotorBus:
     def _send(self, msg: can.Message) -> None:
         try:
             self._bus.send(msg)
+            self.tx_frame_count += 1
             logger.debug(f'TX  0x{msg.arbitration_id:03X}  '
                          f'{msg.data.hex(" ").upper()}')
         except can.CanError as e:

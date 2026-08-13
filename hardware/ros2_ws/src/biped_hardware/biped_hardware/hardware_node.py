@@ -79,7 +79,7 @@ class HardwareNode(Node):
         self.received_cmd_count = 0
 
         # значения счётчиков на момент прошлого лога — из них считаем частоту
-        self.counts_at_last_log = (0, 0, 0, 0, 0)
+        self.counts_at_last_log = (0, 0, 0, 0, 0, 0)
 
         # ── Подписки ──────────────────────────────────────────────────────────
         self.create_subscription(
@@ -224,10 +224,11 @@ class HardwareNode(Node):
             self.received_cmd_count,
             self.motor_feedback_count,
             self.imu.packet_count if self.imu else 0,
+            self.motor_bus.tx_frame_count,
             self.motor_bus.rx_frame_count,
             self.motor_bus.tx_error_count + self.motor_bus.error_frame_count,
         )
-        cmd_rate, feedback_rate, imu_rate, rx_rate, error_rate = [
+        cmd_rate, feedback_rate, imu_rate, tx_rate, rx_rate, error_rate = [
             now - before for now, before in zip(counts_now, self.counts_at_last_log)
         ]
         self.counts_at_last_log = counts_now
@@ -236,6 +237,7 @@ class HardwareNode(Node):
             f"команд принято: {cmd_rate}/с, "
             f"фидбек моторов: {feedback_rate}/с, "
             f"пакетов IMU: {imu_rate}/с, "
+            f"кадров в шину: {tx_rate}/с, "
             f"кадров с шины: {rx_rate}/с, "
             f"ошибок CAN: {error_rate}/с, "
             f"шина: {self.motor_bus.get_bus_state_text()}"
