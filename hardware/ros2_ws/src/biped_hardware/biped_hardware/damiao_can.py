@@ -197,9 +197,19 @@ class DamiaoMotorBus:
         bus.close()
     """
 
-    def __init__(self, rx_callback: Optional[Callable[[MotorState], None]] = None):
+    def __init__(
+        self,
+        rx_callback: Optional[Callable[[MotorState], None]] = None,
+        error_callback: Optional[Callable[[str], None]] = None,
+    ):
         self.rx_callback = rx_callback
+        self.error_callback = error_callback
         self.states: Dict[int, MotorState] = {}
+
+        # диагностика шины, растёт всё время работы
+        self.tx_error_count = 0      # не удалось отправить кадр
+        self.error_frame_count = 0   # шина прислала кадр ошибки
+        self.last_error_text = ''
 
         self._bus = can.interface.Bus(
             channel=CAN_CHANNEL,
@@ -285,6 +295,16 @@ class DamiaoMotorBus:
     def get_state(self, motor_id: int) -> Optional[MotorState]:
         return self.states.get(motor_id)
 
+    def get_bus_state_text(self) -> str:
+        """
+        Состояние контроллера CAN: ACTIVE — норма, PASSIVE/ERROR — много ошибок
+        на шине (обрыв, нет терминаторов, никто не отвечает).
+        """
+        try:
+            return str(self._bus.state).replace('BusState.', '')
+        except NotImplementedError:
+            return 'UNKNOWN'
+
     # ── Внутренние методы ─────────────────────────────────────────────────────
 
     def _send(self, msg: can.Message) -> None:
@@ -293,9 +313,29 @@ class DamiaoMotorBus:
             logger.debug(f'TX  0x{msg.arbitration_id:03X}  '
                          f'{msg.data.hex(" ").upper()}')
         except can.CanError as e:
-            logger.error(f'CAN TX error: {e}')
+            # частый случай — 'No buffer space available': кадры уходят быстрее,
+            # чем MCP2515 успевает их отдавать в шину
+            self.tx_error_count += 1
+            error_text = str(e)
+            # одна и та же ошибка сыплется сотнями в секунду — пишем только новую
+            if error_text != self.last_error_text:
+                logger.error(f'CAN TX error: {error_text}')
+            self.last_error_text = error_text
+            if self.error_callback:
+                self.error_callback(error_text)
 
     def _on_message(self, msg: can.Message) -> None:
+        # кадр ошибки шины: обрыв, короткое замыкание, нет второго узла и т.п.
+        if msg.is_error_frame:
+            self.error_frame_count += 1
+            error_text = f'error frame 0x{msg.arbitration_id:08X}'
+            if error_text != self.last_error_text:
+                logger.error(f'CAN {error_text}')
+            self.last_error_text = error_text
+            if self.error_callback:
+                self.error_callback(error_text)
+            return
+
         if msg.arbitration_id != CAN_MASTER_ID:
             return
         state = decode_feedback(msg)
