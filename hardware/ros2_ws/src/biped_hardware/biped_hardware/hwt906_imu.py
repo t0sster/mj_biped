@@ -105,7 +105,9 @@ class Hwt906Imu:
         # датчик может не присылать кватернион — тогда считаем его из углов
         self._quaternion_from_sensor = False
 
-        self._serial = serial.Serial(port, baudrate, timeout=1)
+        # exclusive: второй процесс на этом же порту получит ошибку, а не половину
+        # байтов. Иначе данные молча делятся между читателями и выглядят как шум
+        self._serial = serial.Serial(port, baudrate, timeout=1, exclusive=True)
         self._is_running = True
         self._thread = threading.Thread(target=self._read_loop, daemon=True)
         self._thread.start()

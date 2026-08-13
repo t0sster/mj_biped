@@ -52,6 +52,11 @@ CMD_DISABLE     = 0xFD    # выключить мотор
 CMD_SET_ZERO    = 0xFE    # сохранить текущую позицию как ноль
 CMD_CLEAR_ERROR = 0xFB    # сбросить ошибки
 
+# Правдоподобные температуры мотора, °C. Значения вне диапазона означают,
+# что кадр пришёл искажённым — такому кадру нельзя верить целиком.
+TEMPERATURE_MIN = -40
+TEMPERATURE_MAX = 150
+
 STATUS_MAP = {
     0x0: 'DISABLING',
     0x1: 'ENABLE',
@@ -211,6 +216,7 @@ class DamiaoMotorBus:
         self.rx_frame_count = 0      # принято кадров, включая чужие
         self.tx_error_count = 0      # не удалось отправить кадр
         self.error_frame_count = 0   # шина прислала кадр ошибки
+        self.bad_frame_count = 0     # фидбек с невозможными значениями
         self.last_error_text = ''
         self.other_frame_ids = set()  # ID кадров, которые мы отбросили как чужие
 
@@ -351,6 +357,22 @@ class DamiaoMotorBus:
         state = decode_feedback(msg)
         if state is None:
             return
+
+        # искажённый кадр: температуры вне физически возможных значений.
+        # Позициям из такого кадра тоже верить нельзя, поэтому пропускаем целиком
+        if not (TEMPERATURE_MIN <= state.temperature_mosfet <= TEMPERATURE_MAX
+                and TEMPERATURE_MIN <= state.temperature_rotor <= TEMPERATURE_MAX):
+            self.bad_frame_count += 1
+            error_text = (f'мотор {state.motor_id}: странная температура '
+                          f'{state.temperature_mosfet}/{state.temperature_rotor} °C, '
+                          f'кадр пропущен')
+            if error_text != self.last_error_text:
+                logger.warning(error_text)
+            self.last_error_text = error_text
+            if self.error_callback:
+                self.error_callback(error_text)
+            return
+
         self.states[state.motor_id] = state
         logger.debug(f'RX  motor={state.motor_id}  '
                      f'pos={state.position:+.3f}  '

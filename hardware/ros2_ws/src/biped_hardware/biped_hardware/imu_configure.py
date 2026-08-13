@@ -114,7 +114,8 @@ def main() -> None:
     for packet_name in OUTPUT_PACKETS:
         rsw_value |= PACKET_BITS[packet_name]
 
-    port = serial.Serial(IMU_PORT, IMU_BAUDRATE, timeout=1)
+    # exclusive — чтобы не делить порт с запущенной нодой (см. hwt906_imu.py)
+    port = serial.Serial(IMU_PORT, IMU_BAUDRATE, timeout=1, exclusive=True)
     print(f"Открыт {IMU_PORT} @ {IMU_BAUDRATE}")
 
     try:
