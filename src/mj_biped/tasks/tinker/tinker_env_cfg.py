@@ -159,7 +159,23 @@ _TINKER_INITIAL_STATE = EntityCfg.InitialStateCfg(
   },
   joint_vel={".*": 0.0},
 )
-
+# _TINKER_INITIAL_STATE = EntityCfg.InitialStateCfg(
+#   pos=(0.0, 0.0, 0.325),
+#   rot=(1.0, 0.0, 0.0, 0.0),
+#   joint_pos={
+#     "joint_l_yaw": 0.0,
+#     "joint_l_roll": 0.0,
+#     "joint_l_pitch": 0.25,
+#     "joint_l_knee": 1.2,
+#     "joint_l_ankle": 0.55,
+#     "joint_r_yaw": 0.0,
+#     "joint_r_roll": 0.0,
+#     "joint_r_pitch": -0.25,
+#     "joint_r_knee": -1.2,
+#     "joint_r_ankle": -0.55,
+#   },
+#   joint_vel={".*": 0.0},
+# )
 
 def _get_tinker_cfg() -> EntityCfg:
   return EntityCfg(
