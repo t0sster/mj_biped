@@ -190,12 +190,12 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     "imu_rpy": ObservationTermCfg(
       func=mdp.imu_rpy,
       params={"asset_cfg": _IMU_SITE_CFG},
-      noise=UniformNoiseCfg(n_min=-0.05, n_max=0.05),
+      noise=UniformNoiseCfg(n_min=-0.1, n_max=0.1),
     ),
     "imu_gyro": ObservationTermCfg(
       func=mdp.builtin_sensor_data,
       params={"sensor_name": _IMU_GYRO_SENSOR},
-      noise=UniformNoiseCfg(n_min=-0.1, n_max=0.1),
+      noise=UniformNoiseCfg(n_min=-0.15, n_max=0.15),
     ),
     "imu_accel": ObservationTermCfg(
       func=mdp.builtin_sensor_data,
@@ -213,7 +213,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     "joint_pos": ObservationTermCfg(
       func=env_mdp.joint_pos_rel,
       params={"asset_cfg": _ROBOT_CFG},
-      noise=UniformNoiseCfg(n_min=-0.01, n_max=0.01),
+      noise=UniformNoiseCfg(n_min=-0.02, n_max=0.02),
     ),
     "joint_vel": ObservationTermCfg(
       func=env_mdp.joint_vel_rel,
@@ -492,7 +492,11 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         func=dr.pseudo_inertia,
         mode="reset",
         params={
-          "asset_cfg": SceneEntityCfg("tinker", body_names=(".*")),
+          # Excludes "base_link": it's the massless freejoint wrapper (all
+          # real mass/inertia live on "torso", see tinker_range.xml) -- its
+          # pseudo-inertia matrix is identically zero, and Cholesky-decomposing
+          # a zero matrix produces NaN, which then corrupts the whole sim.
+          "asset_cfg": SceneEntityCfg("tinker", body_names="torso|link_.*"),
           "alpha_range": (0.5 * math.log(0.8), 0.5 * math.log(1.2)),
         }
       ),
