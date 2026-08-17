@@ -21,29 +21,31 @@
                  eyeballing the real IMU mount point; also the sensor frame for
                  the gyro/accelerometer BuiltinSensorCfg terms wired up in
                  tinker_env_cfg.py. quat accounts for the chip's physical
-                 mounting: its own +Y points robot-forward (local +X of torso)
-                 and its own +X points robot-right (local -Y of torso), a fixed
-                 -90 deg rotation about Z verified numerically in MuJoCo so
-                 simulated gyro/accel/RPY axes match the real chip's raw output. -->
+                 mounting: local +Y points robot-backward (local -X of torso)
+                 and local +X points robot-left (local +Y of torso), local Z
+                 stays up. +90 deg about Z (an extra 180 deg on top of the
+                 original -90 deg guess), verified against a real static
+                 accelerometer reading: raw X/Y/Z components matched the real
+                 chip's to ~1% once this sign was corrected. -->
             <site name="imu" type="sphere" size=".005" pos="0.009 -0.0075 0.1"
-                  quat="0.7071067811865475 0 0 -0.7071067811865475" rgba="1 0 0 1" />
+                  quat="0.7071067811865475 0 0 0.7071067811865475" rgba="1 0 0 1" />
 
             <body name="link_l_yaw" pos="0.0 -0.053301 0.056145">
                 <inertial pos="0.0031721 3.773e-05 -0.050777" quat="-0.00203617 -0.687454 0.00290821 0.726219"
                           mass="0.4033" diaginertia="0.000201201 0.000238822 0.000383417" />
-                <joint name="joint_l_yaw" pos="0 0 0" axis="0 0 -1" limited="true" range="-0.3 0.3" />
+                <joint name="joint_l_yaw" pos="0 0 0" axis="0 0 -1" limited="true" range="-0.5 0.5" />
                 <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.89804 0.91765 0.92941 1" mesh="link_l_yaw" />
 
                 <body name="link_l_roll" pos="-0.010958 0 -0.054965">
                     <inertial pos="0.0090994 0.06545 -0.013394" quat="0.585205 0.677469 0.442002 0.0566104"
                               mass="0.46748" diaginertia="0.000322143 0.000376378 0.000419009" />
-                    <joint name="joint_l_roll" pos="0 0 0" axis="-1 0 0" limited="true" range="-0.2 0.2" />
+                    <joint name="joint_l_roll" pos="0 0 0" axis="1 0 0" limited="true" range="-0.3 0.3" />
                     <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.89804 0.91765 0.92941 1" mesh="link_l_roll" />
 
                     <body name="link_l_pitch" pos="0.010958 -0.073699 -0.014313" quat="0 0 0 1">
                         <inertial pos="-0.0013138 0.0056716 -0.12051" quat="0.521276 0.490827 0.471914 -0.514449"
                                   mass="0.56676" diaginertia="0.000327424 0.00142159 0.00166183" />
-                        <joint name="joint_l_pitch" pos="0 0 0" axis="0 1 0" limited="true" range="-0.57 1.57" />
+                        <joint name="joint_l_pitch" pos="0 0 0" axis="0 1 0" limited="true" range="-1.6 2.0" />
                         <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.79216 0.81961 0.93333 1" mesh="link_l_pitch" />
                         <geom name="left_thigh_collision" type="cylinder" size="0.02 0.060"
                               pos="0 0.005 -0.06" contype="0" conaffinity="1" group="3"
@@ -52,7 +54,8 @@
                         <body name="link_l_knee" pos="0 0 -0.14738">
                             <inertial pos="-2.3595e-06 -0.0058981 -0.11387" quat="0.523506 -0.475366 0.475215 0.523584"
                                       mass="0.35345" diaginertia="0.000117831 0.00078577 0.000854899" />
-                            <joint name="joint_l_knee" pos="0 0 0" axis="0 -1 0" limited="true" range="-0.1 1.57" />
+                            <!-- <joint name="joint_l_knee" pos="0 0 0" axis="0 -1 0" limited="true" range="-0.1 1.57"  /> -->
+                              <joint name="joint_l_knee" pos="0 0 0" axis="0 -1 0" limited="true" range="-2.2 2.2"  />
                             <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="link_l_knee" />
                             <geom name="left_shank_collision" type="cylinder" size="0.022 0.060"
                                   pos="0 0 -0.071" contype="0" conaffinity="1" group="3"
@@ -61,7 +64,7 @@
                             <body name="link_l_ankle" pos="0 0 -0.14149">
                                 <inertial pos="0.020853 0.0048146 -0.030186" quat="0.838465 0.543202 -0.00751493 -0.0430274"
                                           mass="0.17624" diaginertia="7.66563e-05 0.00026519 0.000298604" />
-                                <joint name="joint_l_ankle" pos="0 0 0" axis="0 1 0" limited="true" range="-0.3 0.8" />
+                                <joint name="joint_l_ankle" pos="0 0 0" axis="0 1 0" limited="true" range="-1.2 1.2" />
                                 <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="link_l_ankle" />
                                 <geom name="left_foot_collision" type="box"
                                       size="0.07 0.025 0.009" pos="0.015 0 -0.040"
@@ -78,19 +81,19 @@
             <body name="link_r_yaw" pos="0.0 0.053425 0.056145">
                 <inertial pos="0.0031721 3.773e-05 -0.050777" quat="-0.00203617 -0.687454 0.00290821 0.726219"
                           mass="0.4033" diaginertia="0.000201201 0.000238822 0.000383417" />
-                <joint name="joint_r_yaw" pos="0 0 0" axis="0 0 -1" limited="true" range="-0.3 0.3" />
+                <joint name="joint_r_yaw" pos="0 0 0" axis="0 0 -1" limited="true" range="-0.5 0.5" />
                 <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.89804 0.91765 0.92941 1" mesh="link_r_yaw" />
 
                 <body name="link_r_roll" pos="-0.010958 0 -0.054965">
                     <inertial pos="0.0090994 -0.06469 -0.013394" quat="0.679011 0.589319 -0.0424055 -0.435717"
                               mass="0.46748" diaginertia="0.000319551 0.000370653 0.000415786" />
-                    <joint name="joint_r_roll" pos="0 0 0" axis="-1 0 0" limited="true" range="-0.2 0.2" />
+                    <joint name="joint_r_roll" pos="0 0 0" axis="1 0 0" limited="true" range="-0.3 0.3" />
                     <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.89804 0.91765 0.92941 1" mesh="link_r_roll" />
 
                     <body name="link_r_pitch" pos="0.010958 0.073575 -0.014313" quat="0 0 0 1">
                         <inertial pos="-0.0013138 -0.0047951 -0.11962" quat="-0.509439 0.471151 0.493877 0.523998"
                                   mass="0.56676" diaginertia="0.000327208 0.00146934 0.00170803" />
-                        <joint name="joint_r_pitch" pos="0 0 0" axis="0 -1 0" limited="true" range="-1.57 0.57" />
+                        <joint name="joint_r_pitch" pos="0 0 0" axis="0 -1 0" limited="true" range="-2.0 1.6" />
                         <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.79216 0.81961 0.93333 1" mesh="link_r_pitch" />
                         <geom name="right_thigh_collision" type="cylinder" size="0.02 0.060"
                               pos="0 -0.005 -0.06" contype="0" conaffinity="1" group="3"
@@ -99,7 +102,7 @@
                         <body name="link_r_knee" pos="0 0 -0.14738">
                             <inertial pos="7.3527e-06 0.0067747 -0.11375" quat="-0.523387 -0.475377 -0.475527 0.523409"
                                       mass="0.35345" diaginertia="0.000117889 0.00078911 0.000858181" />
-                            <joint name="joint_r_knee" pos="0 0 0" axis="0 1 0" limited="true" range="-1.57 0.10" />
+                            <joint name="joint_r_knee" pos="0 0 0" axis="0 1 0" limited="true" range="-2.2 2.2" />
                             <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="link_r_knee" />
                             <geom name="right_shank_collision" type="cylinder" size="0.022 0.060"
                                   pos="0 0 -0.071" contype="0" conaffinity="1" group="3"
@@ -108,7 +111,7 @@
                             <body name="link_r_ankle" pos="0 0 -0.14149">
                                 <inertial pos="0.014562 -0.0039946 -0.031306" quat="0.8618 -0.506504 0.0135724 0.0238858"
                                           mass="0.175" diaginertia="7.40094e-05 0.000296308 0.000330043" />
-                                <joint name="joint_r_ankle" pos="0 0 0" axis="0 -1 0" limited="true" range="-0.8 0.3" />
+                                <joint name="joint_r_ankle" pos="0 0 0" axis="0 -1 0" limited="true" range="-1.2 1.2" />
                                 <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 0.90588 0.91765 1" mesh="link_r_ankle" />
                                 <geom name="right_foot_collision" type="box"
                                       size="0.07 0.025 0.009" pos="0.015 0 -0.040"

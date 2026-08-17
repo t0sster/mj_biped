@@ -19,7 +19,7 @@ from mjlab.viewer import NativeMujocoViewer
 from mj_biped.tasks.tinker import mdp
 from mj_biped.tasks.tinker.tinker_env_cfg import tinker_env_cfg
 
-_PRINT_INTERVAL_S = 0.5
+_PRINT_INTERVAL_S = 0.01
 
 
 class _HoldDefaultPosePolicy:
@@ -50,6 +50,11 @@ class _HoldDefaultPosePolicy:
 
 def main() -> None:
   cfg = tinker_env_cfg(play=True, play_num_envs=1)
+  # No auto-respawn on "falling" (bad_orientation/root_height/etc.) -- we want
+  # the robot to stay wherever it's dragged/tilted for calibration, not snap
+  # back to the default pose mid-comparison. Same trick as mjlab's own
+  # `play --no-terminations`.
+  cfg.terminations = {}
   env = ManagerBasedRlEnv(cfg=cfg, device="cpu")
   policy = _HoldDefaultPosePolicy(env)
   wrapped_env = RslRlVecEnvWrapper(env, clip_actions=None)
