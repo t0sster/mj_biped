@@ -295,7 +295,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       weight=-2.0,
       params={
         "asset_cfg": _ROBOT_CFG,
-        "target_height": 0.26,
+        "target_height": 0.28,
       }
     ),
 
@@ -374,7 +374,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "feet_air_time": RewardTermCfg(
       func=mdp.biped_air_time,
-      weight=3.0,
+      weight=3.5,
       params={
         "sensor_name": _FEET_CONTACT_SENSOR,
         "command_name": "velocity",
