@@ -292,7 +292,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
   rewards = {
     "base_height_track": RewardTermCfg(
       func=mdp.base_height,
-      weight=-1.5,
+      weight=-1.0,
       params={
         "asset_cfg": _ROBOT_CFG,
         "target_height": 0.25,
@@ -301,16 +301,16 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
 
     "track_linear_velocity": RewardTermCfg(
       func=velocity_mdp.track_linear_velocity,
-      weight=2.5,
+      weight=1.5,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
-        "std": math.sqrt(0.03),
+        "std": math.sqrt(0.1),
       },
     ),
     "track_angular_velocity": RewardTermCfg(
       func=velocity_mdp.track_angular_velocity,
-      weight=1.0,
+      weight=0.5,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
@@ -319,10 +319,10 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "heading_travel_alignment": RewardTermCfg(
       func=mdp.heading_travel_alignment,
-      weight=3.0,
+      weight=1.0,
       params={
         "asset_cfg": _ROBOT_CFG,
-        "std": math.sqrt(0.03),
+        "std": math.sqrt(0.1),
         "min_speed": 0.1,
       },
     ),
@@ -353,7 +353,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "swing_foot_force": RewardTermCfg(
       func=mdp.swing_foot_force_l2,
-      weight=-1.5,
+      weight=-0.0,
       params={
         "command_name": "gait",
         "motion_command_name": "velocity",
@@ -364,7 +364,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "stance_foot_velocity": RewardTermCfg(
       func=mdp.stance_foot_velocity_l2,
-      weight=-1.0,
+      weight=-0.0,
       params={
         "asset_cfg": _FOOT_SITE_CFG,
         "command_name": "gait",
@@ -374,7 +374,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "feet_air_time": RewardTermCfg(
       func=mdp.biped_air_time,
-      weight=3.5,
+      weight=1.5,
       params={
         "sensor_name": _FEET_CONTACT_SENSOR,
         "command_name": "velocity",
@@ -462,7 +462,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
           mode="startup",
           params={
               "asset_cfg": SceneEntityCfg("tinker", geom_names=["left_foot_collision", "right_foot_collision"]),
-              "ranges": (0.3, 1.2),
+              "ranges": (0.8, 1.0),
               "operation": "abs",
           },
       ),
@@ -497,7 +497,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
           # pseudo-inertia matrix is identically zero, and Cholesky-decomposing
           # a zero matrix produces NaN, which then corrupts the whole sim.
           "asset_cfg": SceneEntityCfg("tinker", body_names="torso|link_.*"),
-          "alpha_range": (0.5 * math.log(0.8), 0.5 * math.log(1.2)),
+          "alpha_range": (0.5 * math.log(0.9), 0.5 * math.log(1.1)),
         }
       ),
       "encoder_bias": EventTermCfg(
@@ -527,7 +527,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         params={
           "asset_cfg": SceneEntityCfg("tinker", joint_names=(".*")),
           "operation": "scale",
-          "ranges": (0.8, 1.2),
+          "ranges": (0.95, 1.05),
         },
       ),
       "frictioloss": EventTermCfg(
@@ -536,7 +536,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         params={
           "asset_cfg": SceneEntityCfg("tinker", joint_names=(".*")),
           "operation": "scale",
-          "ranges": (0.8, 1.2),
+          "ranges": (0.95, 1.05),
         },
       ),
       "damping": EventTermCfg(
@@ -545,7 +545,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         params={
           "asset_cfg": SceneEntityCfg("tinker", joint_names=(".*")),
           "operation": "scale",
-          "ranges": (0.8, 1.2),
+          "ranges": (0.95, 1.05),
         },
       ),
       "effort_limits": EventTermCfg(
