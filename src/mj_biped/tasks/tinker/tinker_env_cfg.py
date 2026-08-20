@@ -354,7 +354,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "swing_foot_force": RewardTermCfg(
       func=mdp.swing_foot_force_l2,
-      weight=-0.5,
+      weight=-0.0,
       params={
         "command_name": "gait",
         "motion_command_name": "velocity",
@@ -365,7 +365,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "stance_foot_velocity": RewardTermCfg(
       func=mdp.stance_foot_velocity_l2,
-      weight=-0.5,
+      weight=-0.0,
       params={
         "asset_cfg": _FOOT_SITE_CFG,
         "command_name": "gait",
