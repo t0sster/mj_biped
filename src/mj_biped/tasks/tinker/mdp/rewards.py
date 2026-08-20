@@ -135,7 +135,10 @@ def base_height(
     env,
     target_height: float,
     asset_cfg: SceneEntityCfg,
+    std: float,
 ) -> torch.Tensor:
+  """Reward the base tracking a target height (exp kernel, bounded [0, 1])."""
   asset = env.scene[asset_cfg.name]
   height = asset.data.root_link_pos_w[:, 2]
-  return torch.square(height - target_height)
+  error = torch.square(height - target_height)
+  return torch.exp(-error / std**2)
