@@ -283,8 +283,8 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     "gait": mdp.UniformGaitCommandCfg(
       resampling_time_range=(1.0e6, 1.0e6),
       ranges=mdp.UniformGaitCommandCfg.Ranges(
-        frequencies=(0.8, 1.4),
-        duty_cycle=(0.45, 0.75),
+        frequencies=(0.4, 1.4),
+        duty_cycle=(0.35, 0.95),
       ),
     ),
   }
