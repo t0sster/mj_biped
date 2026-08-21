@@ -275,7 +275,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       rel_forward_envs=0.3,
       heading_command=False,
       ranges=velocity_mdp.UniformVelocityCommandCfg.Ranges(
-        lin_vel_x=(-0.3, 0.3),
+        lin_vel_x=(-0.30, 0.30),
         lin_vel_y=(-0.2, 0.2),
         ang_vel_z=(-0.3, 0.3),
       ),
@@ -295,7 +295,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       weight=1.0,
       params={
         "asset_cfg": _ROBOT_CFG,
-        "target_height": 0.23,
+        "target_height": 0.21,
         "std": math.sqrt(0.001),
       }
     ),
@@ -320,7 +320,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "heading_travel_alignment": RewardTermCfg(
       func=mdp.heading_travel_alignment,
-      weight=1.0,
+      weight=1.25,
       params={
         "asset_cfg": _ROBOT_CFG,
         "std": math.sqrt(0.1),
@@ -375,7 +375,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "feet_air_time": RewardTermCfg(
       func=mdp.biped_air_time,
-      weight=1.5,
+      weight=1.75,
       params={
         "sensor_name": _FEET_CONTACT_SENSOR,
         "command_name": "velocity",
