@@ -335,14 +335,14 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         "command_name": "velocity",
         "std_standing": {".*": math.sqrt(0.08)},
         "std_walking": {
-          ".*_yaw": math.sqrt(0.08),
+          ".*_yaw": math.sqrt(0.05),
           ".*_roll": math.sqrt(0.05),
           ".*_pitch": math.sqrt(0.05),
           ".*_knee": math.sqrt(0.4),
           ".*_ankle": math.sqrt(0.25),
         },
         "std_running": {
-          ".*_yaw": math.sqrt(0.15),
+          ".*_yaw": math.sqrt(0.08),
           ".*_roll": math.sqrt(0.1),
           ".*_pitch": math.sqrt(0.05),
           ".*_knee": math.sqrt(0.5),
@@ -417,7 +417,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "flat_orientation": RewardTermCfg(
       func=env_mdp.flat_orientation_l2,
-      weight=-0.0,
+      weight=-0.8,
       params={"asset_cfg": _ROBOT_CFG},
     ),
     "joint_limits": RewardTermCfg(
