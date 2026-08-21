@@ -337,14 +337,14 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         "std_walking": {
           ".*_yaw": math.sqrt(0.08),
           ".*_roll": math.sqrt(0.05),
-          ".*_pitch": math.sqrt(0.4),
+          ".*_pitch": math.sqrt(0.1),
           ".*_knee": math.sqrt(0.4),
           ".*_ankle": math.sqrt(0.25),
         },
         "std_running": {
           ".*_yaw": math.sqrt(0.15),
           ".*_roll": math.sqrt(0.1),
-          ".*_pitch": math.sqrt(0.5),
+          ".*_pitch": math.sqrt(0.1),
           ".*_knee": math.sqrt(0.5),
           ".*_ankle": math.sqrt(0.35),
         },
