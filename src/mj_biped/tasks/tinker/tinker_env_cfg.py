@@ -295,7 +295,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       weight=1.0,
       params={
         "asset_cfg": _ROBOT_CFG,
-        "target_height": 0.25,
+        "target_height": 0.23,
         "std": math.sqrt(0.001),
       }
     ),
