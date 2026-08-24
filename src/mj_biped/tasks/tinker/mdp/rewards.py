@@ -3,7 +3,7 @@ from __future__ import annotations
 import torch
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.sensor import ContactSensor
-from mjlab.utils.lab_api.math import wrap_to_pi
+from mjlab.utils.lab_api.math import quat_apply_inverse, wrap_to_pi
 
 
 def swing_foot_force_l2(
@@ -141,4 +141,23 @@ def base_height(
   asset = env.scene[asset_cfg.name]
   height = asset.data.root_link_pos_w[:, 2]
   error = torch.square(height - target_height)
+  return torch.exp(-error / std**2)
+
+def step_width(
+    env,
+    target_width: float,
+    asset_cfg: SceneEntityCfg,
+    std: float,
+) -> torch.Tensor:
+
+  asset = env.scene[asset_cfg.name]
+
+  left_pos_w = asset.data.site_pos_w[:, asset_cfg.site_ids[0]]
+  right_pos_w = asset.data.site_pos_w[:, asset_cfg.site_ids[1]]
+  foot_vec_b = quat_apply_inverse(
+    asset.data.root_link_quat_w, right_pos_w - left_pos_w
+  )
+  width = torch.abs(foot_vec_b[:, 1])
+
+  error = torch.square(width - target_width)
   return torch.exp(-error / std**2)
