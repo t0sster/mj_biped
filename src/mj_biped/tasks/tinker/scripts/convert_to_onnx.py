@@ -9,9 +9,8 @@ from mjlab.utils.torch import configure_torch_backends
 CHECKPOINT_PATH = "logs/rsl_rl/tinker/2026-08-21_19-35-35/model_3500.pt"
 TASK_ID = "Mjlab-Tinker"
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
-OUTPUT_DIR = "exported"
+OUTPUT_DIR = "/home/ilya/be2r/Biped/politics/tinker/mj_biped/src/mj_biped/tasks/tinker/onnx"
 OUTPUT_FILENAME = "policy.onnx"
-
 
 def export_onnx():
     configure_torch_backends()
