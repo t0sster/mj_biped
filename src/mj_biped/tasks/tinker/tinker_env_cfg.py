@@ -301,10 +301,10 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "step_width": RewardTermCfg(
         func=mdp.step_width,
-        weight=0.7,
+        weight=0.5,
         params={
           "asset_cfg": _FOOT_SITE_CFG,
-          "target_width": 0.22,
+          "target_width": 0.19,
           "std": math.sqrt(0.001),
         },
     ),
