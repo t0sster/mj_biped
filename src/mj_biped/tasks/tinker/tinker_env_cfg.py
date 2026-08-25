@@ -292,10 +292,10 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
   rewards = {
     "base_height_track": RewardTermCfg(
       func=mdp.base_height,
-      weight=1.0,
+      weight=1.25,
       params={
         "asset_cfg": _ROBOT_CFG,
-        "target_height": 0.21,
+        "target_height": 0.23,
         "std": math.sqrt(0.001),
       }
     ),
@@ -311,7 +311,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
 
     "track_linear_velocity": RewardTermCfg(
       func=velocity_mdp.track_linear_velocity,
-      weight=2.75,
+      weight=2.25,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
