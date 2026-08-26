@@ -468,6 +468,14 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
           func=event_fns.reset_scene_to_default,
           mode="reset",
       ),
+      "reset_base_pose": EventTermCfg(
+          func=event_fns.reset_root_state_uniform,
+          mode="reset",
+          params={
+              "asset_cfg": SceneEntityCfg("tinker"),
+              "pose_range": {"yaw": (-math.pi, math.pi)},
+          },
+      ),
       # Randomize foot friction once at startup.
       "foot_friction": EventTermCfg(
           func=dr.geom_friction,
