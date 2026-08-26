@@ -99,6 +99,10 @@ def _f2u(x, x_min, x_max, bits):
 def _u2f(x_int, x_min, x_max, bits):
     return float(x_int) * (x_max - x_min) / ((1 << bits) - 1) + x_min
 
+def _to_i8(x: int) -> int:
+    """Байт (0..255) -> знаковый int8 (-128..127). T_MOS/T_Rotor могут быть отрицательными."""
+    return x - 256 if x >= 128 else x
+
 
 def _pack_mit(motor_id, pos, vel, kp, kd, torq) -> can.Message:
     """MIT control frame (документ стр. 33–34). Frame ID = motor_id."""
@@ -170,8 +174,8 @@ def decode_feedback(msg: can.Message) -> Optional[MotorState]:
         position=_u2f(p_int, P_MIN, P_MAX, 16),
         velocity=_u2f(v_int, V_MIN, V_MAX, 12),
         torque=_u2f(t_int, T_MIN, T_MAX, 12),
-        temperature_mosfet=d[6],
-        temperature_rotor=d[7],
+        temperature_mosfet=_to_i8(d[6]),
+        temperature_rotor=_to_i8(d[7]),
         error=err,
         status_str=STATUS_MAP.get(err, f'UNKNOWN(0x{err:X})'),
         timestamp=time.time(),
