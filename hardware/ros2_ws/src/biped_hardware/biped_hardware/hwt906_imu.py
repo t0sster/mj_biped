@@ -18,6 +18,7 @@
 import math
 import struct
 import threading
+import time
 
 import serial
 
@@ -42,6 +43,8 @@ PKG_MAG = 0x54          # магнитометр
 PKG_QUATERNION = 0x59   # кватернион (если включён в настройках датчика)
 
 GRAVITY = 9.80665       # м/с², для перевода из g
+
+RECONNECT_DELAY_SEC = 1.0   # пауза перед повторной попыткой открыть порт
 
 
 def parse_packet(packet: bytes):
@@ -93,6 +96,9 @@ class Hwt906Imu:
     """
 
     def __init__(self, port: str = IMU_PORT, baudrate: int = IMU_BAUDRATE):
+        self._port = port
+        self._baudrate = baudrate
+
         self.accelerometer = [0.0, 0.0, 0.0]
         self.gyroscope = [0.0, 0.0, 0.0]
         self.rpy = [0.0, 0.0, 0.0]
@@ -105,48 +111,67 @@ class Hwt906Imu:
         # датчик может не присылать кватернион — тогда считаем его из углов
         self._quaternion_from_sensor = False
 
-        # exclusive: второй процесс на этом же порту получит ошибку, а не половину
-        # байтов. Иначе данные молча делятся между читателями и выглядят как шум
-        self._serial = serial.Serial(port, baudrate, timeout=1, exclusive=True)
+        self._serial = self._open_serial()
         self._is_running = True
         self._thread = threading.Thread(target=self._read_loop, daemon=True)
         self._thread.start()
 
+    def _open_serial(self) -> serial.Serial:
+        # exclusive: второй процесс на этом же порту получит ошибку, а не половину
+        # байтов. Иначе данные молча делятся между читателями и выглядят как шум
+        return serial.Serial(self._port, self._baudrate, timeout=1, exclusive=True)
+
     # ── Фоновое чтение ────────────────────────────────────────────────────────
 
     def _read_loop(self) -> None:
-        """Собирает байты в пакеты по 11 штук и обновляет поля объекта."""
+        """Читает порт, переоткрывая его при обрыве — иначе поток тихо умирал бы."""
+        while self._is_running:
+            try:
+                self._read_packets()
+            except Exception as error:
+                self.last_error_text = str(error)
+                print(f"IMU: чтение порта прервано — {error}")
+                if self._is_running:
+                    time.sleep(RECONNECT_DELAY_SEC)
+                    self._reopen_serial()
+
+    def _reopen_serial(self) -> None:
         try:
-            self._read_packets()
+            self._serial.close()
+        except Exception:
+            pass
+        try:
+            self._serial = self._open_serial()
         except Exception as error:
-            # без этого поток умирает молча и данные просто перестают идти
             self.last_error_text = str(error)
-            print(f"IMU: чтение порта прервано — {error}")
 
     def _read_packets(self) -> None:
+        """Читает порт блоками и вырезает из накопленного буфера целые пакеты."""
         buffer = bytearray()
 
         while self._is_running:
-            byte = self._serial.read(1)
-            if not byte:
+            chunk = self._serial.read(PACKET_SIZE)
+            if not chunk:
                 continue
+            buffer += chunk
 
-            # начало пакета — всегда 0x55, всё до него пропускаем
-            if not buffer and byte[0] != PACKET_HEADER:
-                continue
+            while True:
+                start = buffer.find(PACKET_HEADER)
+                if start == -1:
+                    buffer.clear()
+                    break
+                del buffer[:start]
+                if len(buffer) < PACKET_SIZE:
+                    break
 
-            buffer += byte
-            if len(buffer) < PACKET_SIZE:
-                continue
-
-            result = parse_packet(bytes(buffer))
-            buffer.clear()
-            if result is not None:
-                packet_type, raw_values = result
-                self._update_values(packet_type, raw_values)
-                self.packet_count += 1
-                self.packet_counts[packet_type] = \
-                    self.packet_counts.get(packet_type, 0) + 1
+                result = parse_packet(bytes(buffer[:PACKET_SIZE]))
+                del buffer[:PACKET_SIZE]
+                if result is not None:
+                    packet_type, raw_values = result
+                    self._update_values(packet_type, raw_values)
+                    self.packet_count += 1
+                    self.packet_counts[packet_type] = \
+                        self.packet_counts.get(packet_type, 0) + 1
 
     def _update_values(self, packet_type: int, raw_values) -> None:
         """Переводит сырые int16 в физические величины."""
@@ -207,8 +232,6 @@ class Hwt906Imu:
 # ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    import time
-
     with Hwt906Imu() as imu:
         print(f"Открыт {IMU_PORT} @ {IMU_BAUDRATE}")
         try:

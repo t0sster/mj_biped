@@ -1,17 +1,4 @@
-"""
-Damiao (达妙) Motor CAN Driver
-Протокол V1.4  |  Raspberry Pi + MCP2515  |  SocketCAN
-
-Зависимости:  pip install python-can
-
-Настройка MCP2515 (/boot/config.txt):
-  dtparam=spi=on
-  dtoverlay=mcp2515-can0,oscillator=8000000,interrupt=25
-
-Поднять интерфейс:
-  sudo ip link set can0 type can bitrate 1000000 && sudo ip link set up can0
-"""
-
+import math
 import struct
 import time
 import logging
@@ -102,6 +89,10 @@ class MotorCmd:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _f2u(x, x_min, x_max, bits):
+    # NaN/inf не отбрасываются сравнением — превращаем в безопасный 0
+    # до клампа, иначе NaN тихо становится максимумом диапазона
+    if not math.isfinite(x):
+        x = 0.0
     x = max(x_min, min(x_max, x))
     return int((x - x_min) / (x_max - x_min) * ((1 << bits) - 1))
 
@@ -202,6 +193,14 @@ class DamiaoMotorBus:
         bus.close()
     """
 
+    # cmd_byte → имя метода, который его обрабатывает
+    _CONTROL_HANDLERS = {
+        CMD_ENABLE:      'enable',
+        CMD_DISABLE:     'disable',
+        CMD_SET_ZERO:    'set_zero_position',
+        CMD_CLEAR_ERROR: 'clear_error',
+    }
+
     def __init__(
         self,
         rx_callback: Optional[Callable[[MotorState], None]] = None,
@@ -293,13 +292,11 @@ class DamiaoMotorBus:
           253 (0xFD) → disable
           254 (0xFE) → set_zero_position
         """
-        {
-            CMD_ENABLE:      self.enable,
-            CMD_DISABLE:     self.disable,
-            CMD_SET_ZERO:    self.set_zero_position,
-            CMD_CLEAR_ERROR: self.clear_error,
-        }.get(cmd_byte, lambda _: logger.warning(
-            f'Неизвестная команда: 0x{cmd_byte:02X}'))(motor_id)
+        handler_name = self._CONTROL_HANDLERS.get(cmd_byte)
+        if handler_name is None:
+            logger.warning(f'Неизвестная команда: 0x{cmd_byte:02X}')
+            return
+        getattr(self, handler_name)(motor_id)
 
     def get_state(self, motor_id: int) -> Optional[MotorState]:
         return self.states.get(motor_id)
@@ -326,24 +323,13 @@ class DamiaoMotorBus:
             # частый случай — 'No buffer space available': кадры уходят быстрее,
             # чем MCP2515 успевает их отдавать в шину
             self.tx_error_count += 1
-            error_text = str(e)
-            # одна и та же ошибка сыплется сотнями в секунду — пишем только новую
-            if error_text != self.last_error_text:
-                logger.error(f'CAN TX error: {error_text}')
-            self.last_error_text = error_text
-            if self.error_callback:
-                self.error_callback(error_text)
+            self._report_error(str(e))
 
     def _on_message(self, msg: can.Message) -> None:
         # кадр ошибки шины: обрыв, короткое замыкание, нет второго узла и т.п.
         if msg.is_error_frame:
             self.error_frame_count += 1
-            error_text = f'error frame 0x{msg.arbitration_id:08X}'
-            if error_text != self.last_error_text:
-                logger.error(f'CAN {error_text}')
-            self.last_error_text = error_text
-            if self.error_callback:
-                self.error_callback(error_text)
+            self._report_error(f'error frame 0x{msg.arbitration_id:08X}')
             return
 
         self.rx_frame_count += 1
@@ -363,14 +349,10 @@ class DamiaoMotorBus:
         if not (TEMPERATURE_MIN <= state.temperature_mosfet <= TEMPERATURE_MAX
                 and TEMPERATURE_MIN <= state.temperature_rotor <= TEMPERATURE_MAX):
             self.bad_frame_count += 1
-            error_text = (f'мотор {state.motor_id}: странная температура '
-                          f'{state.temperature_mosfet}/{state.temperature_rotor} °C, '
-                          f'кадр пропущен')
-            if error_text != self.last_error_text:
-                logger.warning(error_text)
-            self.last_error_text = error_text
-            if self.error_callback:
-                self.error_callback(error_text)
+            self._report_error(
+                f'мотор {state.motor_id}: странная температура '
+                f'{state.temperature_mosfet}/{state.temperature_rotor} °C, кадр пропущен'
+            )
             return
 
         self.states[state.motor_id] = state
@@ -381,6 +363,14 @@ class DamiaoMotorBus:
                      f'{state.status_str}')
         if self.rx_callback:
             self.rx_callback(state)
+
+    def _report_error(self, error_text: str) -> None:
+        # одна и та же ошибка сыплется сотнями в секунду — пишем только новую
+        if error_text != self.last_error_text:
+            logger.error(f'CAN: {error_text}')
+        self.last_error_text = error_text
+        if self.error_callback:
+            self.error_callback(error_text)
 
     def close(self) -> None:
         self._notifier.stop()

@@ -17,6 +17,7 @@ ROS2 Node: hardware_node
     ros2 run biped_hardware hardware_node
 """
 
+import math
 import time
 
 import rclpy
@@ -34,6 +35,25 @@ from biped_hardware.hwt906_imu import Hwt906Imu
 # CAN ID моторов: 1..5 левая нога, 6..10 правая.
 # Порядок задаёт индекс мотора в сообщениях LowCmd/LowState.
 MOTOR_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+# Лимиты позиции по суставам, рад (ctrlrange из модели MuJoCo).
+# Индекс совпадает с MOTOR_IDS: на каждую ногу — yaw, roll, pitch, knee, ankle.
+JOINT_POSITION_LIMITS = [
+    (-0.5, 0.5),    # 1  l_yaw
+    (-0.3, 0.3),    # 2  l_roll
+    (-1.6, 2.0),    # 3  l_pitch
+    (-2.2, 2.2),    # 4  l_knee
+    (-1.2, 1.2),    # 5  l_ankle
+    (-0.5, 0.5),    # 6  r_yaw
+    (-0.3, 0.3),    # 7  r_roll
+    (-2.0, 1.6),    # 8  r_pitch
+    (-2.2, 2.2),    # 9  r_knee
+    (-1.2, 1.2),    # 10 r_ankle
+]
+
+# Лимит момента, Нм: yaw и голеностоп слабее остальных суставов (forcerange из MuJoCo).
+MOTOR_TORQUE_LIMIT_NM = {1: 6.0, 5: 6.0, 6: 6.0, 10: 6.0}
+DEFAULT_TORQUE_LIMIT_NM = 10.0
 
 # Моторы отвечают только на пришедший к ним кадр, поэтому команды шлём
 # непрерывно — иначе фидбека не будет. Чем выше частота, тем плотнее поток:
@@ -54,6 +74,13 @@ FEEDBACK_TIMEOUT_SEC = 0.2
 USE_IMU = True             # False — работать только с моторами, без IMU
 
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def clamp(value: float, low: float, high: float) -> float:
+    """Ограничивает value диапазоном [low, high]; NaN/inf → 0 (безопасный нейтраль)."""
+    if not math.isfinite(value):
+        return 0.0
+    return max(low, min(high, value))
 
 
 class HardwareNode(Node):
@@ -81,17 +108,12 @@ class HardwareNode(Node):
         # значения счётчиков на момент прошлого лога — из них считаем частоту
         self.counts_at_last_log = (0, 0, 0, 0, 0, 0)
 
-        # ── Подписки ──────────────────────────────────────────────────────────
-        self.create_subscription(
-            LowCmd, "/low_level_cmd", self._on_low_cmd, 10)
-        self.create_subscription(
-            ControlCmd, "/control_command", self._on_control_cmd, 10)
+        self.create_subscription(LowCmd, "/low_level_cmd", self._on_low_cmd, 10)
+        self.create_subscription(ControlCmd, "/control_command", self._on_control_cmd, 10)
 
-        # ── Публикации ────────────────────────────────────────────────────────
         self.low_state_publisher = self.create_publisher(
             LowState, "/low_level_state_real", 10)
 
-        # ── Таймеры ───────────────────────────────────────────────────────────
         self.create_timer(1.0 / CONTROL_RATE_HZ, self._send_motor_commands)
         self.create_timer(1.0 / PUBLISH_RATE_HZ, self._publish_low_state)
         self.create_timer(1.0 / LOG_RATE_HZ, self._log_status)
@@ -113,10 +135,13 @@ class HardwareNode(Node):
 
     def _on_control_cmd(self, msg: ControlCmd) -> None:
         """ControlCmd → enable / disable / set_zero / clear_error."""
-        self.motor_bus.handle_control_cmd(
-            motor_id=int(msg.motor_id),
-            cmd_byte=int(msg.cmd),
-        )
+        motor_id = int(msg.motor_id)
+        if motor_id not in MOTOR_IDS:
+            self.get_logger().warn(
+                f"ControlCmd: motor_id={motor_id} вне диапазона моторов {MOTOR_IDS}, игнорирую"
+            )
+            return
+        self.motor_bus.handle_control_cmd(motor_id=motor_id, cmd_byte=int(msg.cmd))
 
     # ── Отправка команд в моторы ──────────────────────────────────────────────
 
@@ -141,13 +166,15 @@ class HardwareNode(Node):
         for index, motor_id in enumerate(MOTOR_IDS):
             if has_fresh_cmd:
                 cmd = self.last_motor_cmd.motor_cmd[index]
+                pos_min, pos_max = JOINT_POSITION_LIMITS[index]
+                torque_limit = MOTOR_TORQUE_LIMIT_NM.get(motor_id, DEFAULT_TORQUE_LIMIT_NM)
                 self.motor_bus.send_mit(
                     motor_id=motor_id,
-                    pos=float(cmd.position),
+                    pos=clamp(float(cmd.position), pos_min, pos_max),
                     vel=float(cmd.velocity),
                     kp=float(cmd.kp),
                     kd=float(cmd.kd),
-                    torq=float(cmd.torque),
+                    torq=clamp(float(cmd.torque), -torque_limit, torque_limit),
                 )
             else:
                 # холостой кадр: kp = kd = 0 и нулевой момент, поэтому мотор
@@ -205,6 +232,7 @@ class HardwareNode(Node):
         """Последние данные IMU → сообщение IMUState."""
         imu_state = IMUState()
         imu_state.timestamp_state = now
+        imu_state.quaternion = [1.0, 0.0, 0.0, 0.0]   # единичный, а не [0,0,0,0] по умолчанию
 
         if self.imu is None:
             return imu_state

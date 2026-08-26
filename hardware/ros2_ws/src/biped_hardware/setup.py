@@ -27,6 +27,8 @@ setup(
         'console_scripts': [
             'hardware_node = biped_hardware.hardware_node:main',
             'imu_configure = biped_hardware.imu_configure:main',
+            'zero_motors_node = biped_hardware.zero_motors_node:main',
+            'init_pose_node = biped_hardware.init_pose_node:main',
         ],
     },
 )
