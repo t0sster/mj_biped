@@ -190,7 +190,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     "imu_rpy": ObservationTermCfg(
       func=mdp.imu_rpy,
       params={"asset_cfg": _IMU_SITE_CFG},
-      noise=UniformNoiseCfg(n_min=-0.1, n_max=0.1),
+      noise=UniformNoiseCfg(n_min=(-0.1, -0.1, -0.25), n_max=(0.1, 0.1, 0.25)),
     ),
     "imu_gyro": ObservationTermCfg(
       func=mdp.builtin_sensor_data,
@@ -212,7 +212,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "joint_pos": ObservationTermCfg(
       func=env_mdp.joint_pos_rel,
-      params={"asset_cfg": _ROBOT_CFG},
+      params={"asset_cfg": _ROBOT_CFG, "biased": True},
       noise=UniformNoiseCfg(n_min=-0.02, n_max=0.02),
     ),
     "joint_vel": ObservationTermCfg(
@@ -296,7 +296,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       params={
         "asset_cfg": _ROBOT_CFG,
         "target_height": 0.22,
-        "std": math.sqrt(0.001),
+        "std": math.sqrt(0.01),
       }
     ),
     "step_width": RewardTermCfg(
@@ -305,7 +305,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         params={
           "asset_cfg": _FOOT_SITE_CFG,
           "target_width": 0.19,
-          "std": math.sqrt(0.001),
+          "std": math.sqrt(0.01),
         },
     ),
 
