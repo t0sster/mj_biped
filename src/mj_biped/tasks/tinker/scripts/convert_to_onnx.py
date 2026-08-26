@@ -6,10 +6,10 @@ from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
 from mjlab.tasks.registry import load_env_cfg, load_rl_cfg, load_runner_cls
 from mjlab.utils.torch import configure_torch_backends
 
-CHECKPOINT_PATH = "logs/rsl_rl/tinker/2026-08-21_19-35-35/model_3500.pt"
+CHECKPOINT_PATH = "logs/rsl_rl/tinker/2026-08-25_14-19-03/model_2100.pt"
 TASK_ID = "Mjlab-Tinker"
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
-OUTPUT_DIR = "/home/ilya/be2r/Biped/politics/tinker/mj_biped/src/mj_biped/tasks/tinker/onnx"
+OUTPUT_DIR = "/home/ilya/be2r/Biped/politics/tinker/mj_biped/src/mj_biped/tasks/tinker/exported/"
 OUTPUT_FILENAME = "policy.onnx"
 
 def export_onnx():
