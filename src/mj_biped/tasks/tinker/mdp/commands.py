@@ -4,6 +4,10 @@ from dataclasses import dataclass
 
 import torch
 from mjlab.managers.command_manager import CommandTerm, CommandTermCfg
+from mjlab.tasks.velocity.mdp.velocity_command import (
+  UniformVelocityCommand,
+  UniformVelocityCommandCfg,
+)
 
 
 @dataclass(kw_only=True)
