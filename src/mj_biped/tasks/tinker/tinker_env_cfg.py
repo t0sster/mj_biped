@@ -271,7 +271,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     "velocity": velocity_mdp.UniformVelocityCommandCfg(
       entity_name="tinker",
       resampling_time_range=(4.0, 8.0),
-      rel_standing_envs=0.1,
+      rel_standing_envs=0.15,
       rel_forward_envs=0.3,
       heading_command=False,
       ranges=velocity_mdp.UniformVelocityCommandCfg.Ranges(
@@ -315,7 +315,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
-        "std": math.sqrt(0.001),
+        "std": math.sqrt(0.01),
       },
     ),
     "track_angular_velocity": RewardTermCfg(
