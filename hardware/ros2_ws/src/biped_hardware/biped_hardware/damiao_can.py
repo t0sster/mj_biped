@@ -44,6 +44,10 @@ CMD_CLEAR_ERROR = 0xFB    # сбросить ошибки
 TEMPERATURE_MIN = -40
 TEMPERATURE_MAX = 150
 
+# У мотора 10 неисправен датчик температуры ротора (всегда вне диапазона) —
+# для него проверку температуры не делаем, чтобы не терять остальные данные кадра.
+TEMPERATURE_CHECK_SKIP_IDS = {10}
+
 STATUS_MAP = {
     0x0: 'DISABLING',
     0x1: 'ENABLE',
@@ -350,8 +354,11 @@ class DamiaoMotorBus:
 
         # искажённый кадр: температуры вне физически возможных значений.
         # Позициям из такого кадра тоже верить нельзя, поэтому пропускаем целиком
-        if not (TEMPERATURE_MIN <= state.temperature_mosfet <= TEMPERATURE_MAX
-                and TEMPERATURE_MIN <= state.temperature_rotor <= TEMPERATURE_MAX):
+        # (кроме моторов из TEMPERATURE_CHECK_SKIP_IDS — у них датчик заведомо врёт)
+        if state.motor_id not in TEMPERATURE_CHECK_SKIP_IDS and not (
+            TEMPERATURE_MIN <= state.temperature_mosfet <= TEMPERATURE_MAX
+            and TEMPERATURE_MIN <= state.temperature_rotor <= TEMPERATURE_MAX
+        ):
             self.bad_frame_count += 1
             self._report_error(
                 f'мотор {state.motor_id}: странная температура '
