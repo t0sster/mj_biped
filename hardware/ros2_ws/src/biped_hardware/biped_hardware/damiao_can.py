@@ -1,5 +1,7 @@
 import math
 import struct
+import subprocess
+import threading
 import time
 import logging
 from dataclasses import dataclass, field
@@ -14,7 +16,15 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 
 CAN_CHANNEL = 'can0'    # сетевой интерфейс SocketCAN
+CAN_BITRATE = 1_000_000
 CAN_MASTER_ID = 0       # Master ID (Frame ID обратной связи, задаётся в 调试助手)
+
+# Если с шины так долго вообще ничего не приходит (ни фидбека, ни чужих кадров) —
+# считаем её зависшей и поднимаем заново (down/up + restart-ms). Не чаще, чем раз
+# в RECOVERY_COOLDOWN_SEC, чтобы не долбить интерфейс, если проблема не в софте
+# (нет питания моторов, оборван кабель).
+RX_SILENCE_TIMEOUT_SEC = 0.1
+RECOVERY_COOLDOWN_SEC = 2.0
 
 # CAN ID моторов задаются там, где драйвер используется:
 # в hardware_node.MOTOR_IDS (ROS2) и в MOTOR_IDS стендовых скриптов mcp2515/.
@@ -226,6 +236,7 @@ class DamiaoMotorBus:
         self.bad_frame_count = 0     # фидбек с невозможными значениями
         self.last_error_text = ''
         self.other_frame_ids = set()  # ID кадров, которые мы отбросили как чужие
+        self.recovery_count = 0       # сколько раз поднимали шину заново
 
         self._bus = can.interface.Bus(
             channel=CAN_CHANNEL,
@@ -233,6 +244,12 @@ class DamiaoMotorBus:
         )
         self._notifier = can.Notifier(self._bus, [self._on_message])
         logger.info(f'DamiaoMotorBus: {CAN_CHANNEL}, master_id={CAN_MASTER_ID}')
+
+        self._last_rx_time = time.time()
+        self._last_recovery_time = 0.0
+        self._watchdog_running = True
+        self._watchdog_thread = threading.Thread(target=self._watchdog_loop, daemon=True)
+        self._watchdog_thread.start()
 
     # ── Служебные команды ─────────────────────────────────────────────────────
 
@@ -334,6 +351,9 @@ class DamiaoMotorBus:
             self._report_error(str(e))
 
     def _on_message(self, msg: can.Message) -> None:
+        # что угодно с шины — доказательство, что интерфейс жив, не только фидбек
+        self._last_rx_time = time.time()
+
         # кадр ошибки шины: обрыв, короткое замыкание, нет второго узла и т.п.
         if msg.is_error_frame:
             self.error_frame_count += 1
@@ -383,7 +403,44 @@ class DamiaoMotorBus:
         if self.error_callback:
             self.error_callback(error_text)
 
+    def _watchdog_loop(self) -> None:
+        """Раз в секунду проверяет, не молчит ли шина, и поднимает её заново."""
+        while self._watchdog_running:
+            time.sleep(1.0)
+            silence = time.time() - self._last_rx_time
+            since_last_recovery = time.time() - self._last_recovery_time
+            if silence > RX_SILENCE_TIMEOUT_SEC and since_last_recovery > RECOVERY_COOLDOWN_SEC:
+                self._recover_bus(silence)
+
+    def _recover_bus(self, silence: float) -> None:
+        self._last_recovery_time = time.time()
+        self.recovery_count += 1
+        self._report_error(
+            f'с {CAN_CHANNEL} {silence:.1f}с не приходит ни одного кадра, '
+            f'поднимаю интерфейс заново (попытка {self.recovery_count})'
+        )
+        try:
+            self._notifier.stop()
+            self._bus.shutdown()
+            self._run_ip(['link', 'set', CAN_CHANNEL, 'down'])
+            self._run_ip(['link', 'set', CAN_CHANNEL, 'type', 'can',
+                          'bitrate', str(CAN_BITRATE), 'restart-ms', '100'])
+            self._run_ip(['link', 'set', CAN_CHANNEL, 'up'])
+            self._bus = can.interface.Bus(channel=CAN_CHANNEL, interface='socketcan')
+            self._notifier = can.Notifier(self._bus, [self._on_message])
+            self._last_rx_time = time.time()
+        except Exception as error:
+            self._report_error(f'не удалось поднять {CAN_CHANNEL} заново: {error}')
+
+    @staticmethod
+    def _run_ip(args) -> None:
+        # sudo -n: если пароль не закэширован, сразу падаем с ошибкой вместо
+        # вечного ожидания ввода пароля в фоновом потоке без терминала
+        subprocess.run(['sudo', '-n', 'ip', *args], check=True, timeout=5,
+                        capture_output=True, text=True)
+
     def close(self) -> None:
+        self._watchdog_running = False
         self._notifier.stop()
         self._bus.shutdown()
 

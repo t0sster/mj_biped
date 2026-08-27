@@ -64,8 +64,13 @@ CONTROL_RATE_HZ = 100.0
 PUBLISH_RATE_HZ = 100.0    # частота публикации /low_level_state_real
 LOG_RATE_HZ = 1.0          # частота диагностических сообщений в консоль
 
-# Если команд с ПК нет дольше этого времени, считаем, что ПК молчит,
-# и переходим на холостые кадры (моторы при этом не двигаются).
+# Если команд с ПК нет дольше этого времени, считаем их устаревшими и
+# предупреждаем в лог — но моторам всё равно продолжаем слать последнюю
+# полученную команду: если клиент (например, init_pose_node) отключился,
+# поза должна удерживаться, а не обмякать. Осознанный отказ от watchdog'а:
+# если единственный клиент вообще никогда не пришлёт LowCmd, моторы стоят
+# на холостом кадре (см. has_ever_received_cmd ниже) — обмякания без причины
+# при живом клиенте больше не происходит.
 CMD_TIMEOUT_SEC = 0.5
 
 # Если мотор не отвечает дольше этого времени, помечаем его как потерянного.
@@ -149,22 +154,31 @@ class HardwareNode(Node):
         """
         Шлём кадры в моторы непрерывно: контроллер отвечает фидбеком только
         на пришедший к нему кадр, без потока команд состояние не обновляется.
+
+        Как только пришла хоть одна LowCmd — держим последнюю полученную
+        команду вечно, даже если клиент, который её прислал, отключился.
+        Холостой кадр (kp=kd=0) шлём только до самой первой команды.
         """
-        has_fresh_cmd = (
-            self.last_motor_cmd is not None
-            and time.time() - self.last_cmd_time < CMD_TIMEOUT_SEC
-        )
+        has_ever_received_cmd = self.last_motor_cmd is not None
+        cmd_age = time.time() - self.last_cmd_time if has_ever_received_cmd else 0.0
 
         # сообщаем в лог только о смене режима, а не каждый раз
-        if has_fresh_cmd != self.is_sending_pc_cmd:
-            self.is_sending_pc_cmd = has_fresh_cmd
+        if has_ever_received_cmd != self.is_sending_pc_cmd:
+            self.is_sending_pc_cmd = has_ever_received_cmd
             self.get_logger().info(
-                "пошли команды с ПК" if has_fresh_cmd
-                else "команд с ПК нет, шлю холостые кадры"
+                "пошли команды с ПК" if has_ever_received_cmd
+                else "команд с ПК ещё не было, шлю холостые кадры"
+            )
+
+        if has_ever_received_cmd and cmd_age > CMD_TIMEOUT_SEC:
+            self.get_logger().warn(
+                f"команда с ПК устарела ({cmd_age:.1f}с) — держу последнюю "
+                f"полученную позу вслепую, клиент, похоже, отключился",
+                throttle_duration_sec=5.0,
             )
 
         for index, motor_id in enumerate(MOTOR_IDS):
-            if has_fresh_cmd:
+            if has_ever_received_cmd:
                 cmd = self.last_motor_cmd.motor_cmd[index]
                 pos_min, pos_max = JOINT_POSITION_LIMITS[index]
                 torque_limit = MOTOR_TORQUE_LIMIT_NM.get(motor_id, DEFAULT_TORQUE_LIMIT_NM)
