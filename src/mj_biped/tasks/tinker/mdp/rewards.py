@@ -6,6 +6,26 @@ from mjlab.sensor import ContactSensor
 from mjlab.utils.lab_api.math import quat_apply_inverse, wrap_to_pi
 
 
+def gait_contact_match(
+  env,
+  sensor_name: str,
+  command_name: str,
+  motion_command_name: str,
+  command_threshold: float = 0.05,
+) -> torch.Tensor:
+  sensor: ContactSensor = env.scene[sensor_name]
+  assert sensor.data.found is not None
+  desired_contacts = env.command_manager.get_command(command_name)[:, 2:4]
+  in_contact = (sensor.data.found > 0).float()
+  match = 1.0 - torch.abs(in_contact - desired_contacts)
+  reward = torch.mean(match, dim=1)
+  return reward * _moving_command_mask(
+    env,
+    command_name=motion_command_name,
+    threshold=command_threshold,
+  )
+
+
 def swing_foot_force_l2(
   env,
   sensor_name: str,

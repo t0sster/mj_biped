@@ -362,6 +362,16 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         "running_threshold": 0.4,
       },
     ),
+    "gait_contact_match": RewardTermCfg(
+      func=mdp.gait_contact_match,
+      weight=0.5,
+      params={
+        "command_name": "gait",
+        "motion_command_name": "velocity",
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "command_threshold": 0.05,
+      },
+    ),
     "swing_foot_force": RewardTermCfg(
       func=mdp.swing_foot_force_l2,
       weight=-0.0,
