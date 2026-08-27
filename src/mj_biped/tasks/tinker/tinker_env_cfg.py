@@ -284,7 +284,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     "gait": mdp.UniformGaitCommandCfg(
       resampling_time_range=(1.0e6, 1.0e6),
       ranges=mdp.UniformGaitCommandCfg.Ranges(
-        frequencies=(1.5, 1.5),
+        frequencies=(1.5, 2.0),
         duty_cycle=(0.5, 0.5),
       ),
     ),
@@ -364,7 +364,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "gait_contact_match": RewardTermCfg(
       func=mdp.gait_contact_match,
-      weight=0.5,
+      weight=0.75,
       params={
         "command_name": "gait",
         "motion_command_name": "velocity",
