@@ -306,7 +306,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         params={
           "asset_cfg": _FOOT_SITE_CFG,
           "target_width": 0.19,
-          "std": math.sqrt(0.01),
+          "std": math.sqrt(0.2),
         },
     ),
 
@@ -325,7 +325,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
-        "std": math.sqrt(0.05),
+        "std": math.sqrt(0.01),
       },
     ),
     "heading_travel_alignment": RewardTermCfg(
@@ -390,6 +390,16 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         "asset_cfg": _FOOT_SITE_CFG,
         "command_name": "gait",
         "motion_command_name": "velocity",
+        "command_threshold": 0.05,
+      },
+    ),
+    "feet_slip": RewardTermCfg(
+      func=velocity_mdp.feet_slip,
+      weight=-0.2,
+      params={
+        "asset_cfg": _FOOT_SITE_CFG,
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "command_name": "velocity",
         "command_threshold": 0.05,
       },
     ),
