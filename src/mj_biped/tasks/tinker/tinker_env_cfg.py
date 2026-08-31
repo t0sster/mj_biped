@@ -321,7 +321,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "track_angular_velocity": RewardTermCfg(
       func=velocity_mdp.track_angular_velocity,
-      weight=1.0,
+      weight=1.25,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
@@ -364,7 +364,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "gait_contact_match": RewardTermCfg(
       func=mdp.gait_contact_match,
-      weight=1.0,
+      weight=1.25,
       params={
         "command_name": "gait",
         "motion_command_name": "velocity",
