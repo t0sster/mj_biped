@@ -305,14 +305,14 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         weight=0.5,
         params={
           "asset_cfg": _FOOT_SITE_CFG,
-          "target_width": 0.19,
+          "target_width": 0.17,
           "std": math.sqrt(0.2),
         },
     ),
 
     "track_linear_velocity": RewardTermCfg(
       func=velocity_mdp.track_linear_velocity,
-      weight=2.1,
+      weight=2.5,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
