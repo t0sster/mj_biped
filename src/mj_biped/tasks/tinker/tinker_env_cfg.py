@@ -293,19 +293,19 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
   rewards = {
     "base_height_track": RewardTermCfg(
       func=mdp.base_height,
-      weight=1.25,
+      weight=1.0,
       params={
         "asset_cfg": _ROBOT_CFG,
         "target_height": 0.22,
-        "std": math.sqrt(0.01),
+        "std": math.sqrt(0.1),
       }
     ),
     "step_width": RewardTermCfg(
         func=mdp.step_width,
-        weight=0.25,
+        weight=0.15,
         params={
           "asset_cfg": _FOOT_SITE_CFG,
-          "target_width": 0.17,
+          "target_width": 0.2,
           "std": math.sqrt(0.2),
         },
     ),
@@ -321,7 +321,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "track_angular_velocity": RewardTermCfg(
       func=velocity_mdp.track_angular_velocity,
-      weight=1.5,
+      weight=1.75,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
@@ -333,7 +333,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       weight=1.5,
       params={
         "asset_cfg": _ROBOT_CFG,
-        "std": math.sqrt(0.05),
+        "std": math.sqrt(0.1),
         "min_speed": 0.1,
       },
     ),
@@ -405,7 +405,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "feet_air_time": RewardTermCfg(
       func=mdp.biped_air_time,
-      weight=1.75,
+      weight=1.0,
       params={
         "sensor_name": _FEET_CONTACT_SENSOR,
         "command_name": "velocity",
