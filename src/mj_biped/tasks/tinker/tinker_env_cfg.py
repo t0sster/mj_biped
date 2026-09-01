@@ -302,7 +302,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "step_width": RewardTermCfg(
         func=mdp.step_width,
-        weight=0.5,
+        weight=0.25,
         params={
           "asset_cfg": _FOOT_SITE_CFG,
           "target_width": 0.17,
@@ -312,7 +312,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
 
     "track_linear_velocity": RewardTermCfg(
       func=velocity_mdp.track_linear_velocity,
-      weight=2.5,
+      weight=2.25,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
@@ -321,7 +321,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "track_angular_velocity": RewardTermCfg(
       func=velocity_mdp.track_angular_velocity,
-      weight=1.25,
+      weight=1.5,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
