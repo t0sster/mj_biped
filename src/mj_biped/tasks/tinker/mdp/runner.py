@@ -24,7 +24,7 @@ def tinker_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
       value_loss_coef=1.0,
       use_clipped_value_loss=True,
       clip_param=0.2,
-      entropy_coef=0.0085,
+      entropy_coef=0.007,
       num_learning_epochs=5,
       num_mini_batches=8,
       learning_rate=5.0e-4,
@@ -37,7 +37,7 @@ def tinker_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     experiment_name="tinker",
     save_interval=100,
     num_steps_per_env=24,
-    max_iterations=3001,
+    max_iterations=5001,
     logger="tensorboard",
     upload_model=False,
   )

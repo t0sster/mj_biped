@@ -395,7 +395,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "feet_slip": RewardTermCfg(
       func=velocity_mdp.feet_slip,
-      weight=-0.2,
+      weight=-0.0,
       params={
         "asset_cfg": _FOOT_SITE_CFG,
         "sensor_name": _FEET_CONTACT_SENSOR,
