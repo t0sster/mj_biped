@@ -271,13 +271,13 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     "velocity": velocity_mdp.UniformVelocityCommandCfg(
       entity_name="tinker",
       resampling_time_range=(4.0, 8.0),
-      rel_standing_envs=0.15,
-      rel_forward_envs=0.3,
+      rel_standing_envs=0.1,
+      rel_forward_envs=0.2,
       heading_command=False,
       ranges=velocity_mdp.UniformVelocityCommandCfg.Ranges(
         lin_vel_x=(-0.15, 0.15),
         lin_vel_y=(-0.1, 0.1),
-        ang_vel_z=(-0.15, 0.15),
+        ang_vel_z=(-0.2, 0.2),
         # heading=(-math.pi, math.pi),
       ),
     ),
@@ -297,7 +297,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       params={
         "asset_cfg": _ROBOT_CFG,
         "target_height": 0.22,
-        "std": math.sqrt(0.5),
+        "std": math.sqrt(0.1),
       }
     ),
     "step_width": RewardTermCfg(
@@ -325,12 +325,12 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
-        "std": math.sqrt(0.01),
+        "std": math.sqrt(0.02),
       },
     ),
     "heading_travel_alignment": RewardTermCfg(
       func=mdp.heading_travel_alignment,
-      weight=1.0,
+      weight=0.5,
       params={
         "asset_cfg": _ROBOT_CFG,
         "std": math.sqrt(0.1),
@@ -372,37 +372,37 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         "command_threshold": 0.025,
       },
     ),
-    "swing_foot_force": RewardTermCfg(
-      func=mdp.swing_foot_force_l2,
-      weight=-0.0,
-      params={
-        "command_name": "gait",
-        "motion_command_name": "velocity",
-        "sensor_name": _FEET_CONTACT_SENSOR,
-        "force_scale": 50.0,
-        "command_threshold": 0.05,
-      },
-    ),
-    "stance_foot_velocity": RewardTermCfg(
-      func=mdp.stance_foot_velocity_l2,
-      weight=-0.0,
-      params={
-        "asset_cfg": _FOOT_SITE_CFG,
-        "command_name": "gait",
-        "motion_command_name": "velocity",
-        "command_threshold": 0.05,
-      },
-    ),
-    "feet_slip": RewardTermCfg(
-      func=velocity_mdp.feet_slip,
-      weight=-0.0,
-      params={
-        "asset_cfg": _FOOT_SITE_CFG,
-        "sensor_name": _FEET_CONTACT_SENSOR,
-        "command_name": "velocity",
-        "command_threshold": 0.05,
-      },
-    ),
+    # "swing_foot_force": RewardTermCfg(
+    #   func=mdp.swing_foot_force_l2,
+    #   weight=-0.0,
+    #   params={
+    #     "command_name": "gait",
+    #     "motion_command_name": "velocity",
+    #     "sensor_name": _FEET_CONTACT_SENSOR,
+    #     "force_scale": 50.0,
+    #     "command_threshold": 0.05,
+    #   },
+    # ),
+    # "stance_foot_velocity": RewardTermCfg(
+    #   func=mdp.stance_foot_velocity_l2,
+    #   weight=-0.0,
+    #   params={
+    #     "asset_cfg": _FOOT_SITE_CFG,
+    #     "command_name": "gait",
+    #     "motion_command_name": "velocity",
+    #     "command_threshold": 0.05,
+    #   },
+    # ),
+    # "feet_slip": RewardTermCfg(
+    #   func=velocity_mdp.feet_slip,
+    #   weight=-0.0,
+    #   params={
+    #     "asset_cfg": _FOOT_SITE_CFG,
+    #     "sensor_name": _FEET_CONTACT_SENSOR,
+    #     "command_name": "velocity",
+    #     "command_threshold": 0.05,
+    #   },
+    # ),
     "feet_air_time": RewardTermCfg(
       func=mdp.biped_air_time,
       weight=1.0,
@@ -430,11 +430,11 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         "max_force": 80.0,
       },
     ),
-    "base_vertical_velocity": RewardTermCfg(
-      func=mdp.base_vertical_velocity_l2,
-      weight=-0.0,
-      params={"asset_cfg": _ROBOT_CFG},
-    ),
+    # "base_vertical_velocity": RewardTermCfg(
+    #   func=mdp.base_vertical_velocity_l2,
+    #   weight=-0.0,
+    #   params={"asset_cfg": _ROBOT_CFG},
+    # ),
     "joint_torques": RewardTermCfg(
       func=env_mdp.joint_torques_l2,
       weight=-1.0e-4,
