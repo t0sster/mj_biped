@@ -302,17 +302,17 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "step_width": RewardTermCfg(
         func=mdp.step_width,
-        weight=0.1,
+        weight=0.5,
         params={
           "asset_cfg": _FOOT_SITE_CFG,
           "target_width": 0.2,
-          "std": math.sqrt(0.5),
+          "std": math.sqrt(0.2),
         },
     ),
 
     "track_linear_velocity": RewardTermCfg(
       func=velocity_mdp.track_linear_velocity,
-      weight=2.5,
+      weight=2.0,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
@@ -321,22 +321,22 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "track_angular_velocity": RewardTermCfg(
       func=velocity_mdp.track_angular_velocity,
-      weight=2.5,
+      weight=2.0,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
-        "std": math.sqrt(0.02),
+        "std": math.sqrt(0.01),
       },
     ),
-    "heading_travel_alignment": RewardTermCfg(
-      func=mdp.heading_travel_alignment,
-      weight=0.5,
-      params={
-        "asset_cfg": _ROBOT_CFG,
-        "std": math.sqrt(0.1),
-        "min_speed": 0.1,
-      },
-    ),
+    # "heading_travel_alignment": RewardTermCfg(
+    #   func=mdp.heading_travel_alignment,
+    #   weight=0.5,
+    #   params={
+    #     "asset_cfg": _ROBOT_CFG,
+    #     "std": math.sqrt(0.1),
+    #     "min_speed": 0.1,
+    #   },
+    # ),
     "posture": RewardTermCfg(
       func=velocity_mdp.variable_posture,
       weight=0.2,
@@ -405,7 +405,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     # ),
     "feet_air_time": RewardTermCfg(
       func=mdp.biped_air_time,
-      weight=1.0,
+      weight=1.5,
       params={
         "sensor_name": _FEET_CONTACT_SENSOR,
         "command_name": "velocity",
