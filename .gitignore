@@ -17,3 +17,5 @@ wandb/
 .vscode/
 .codex/
 .agents/
+
+.claude

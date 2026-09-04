@@ -533,12 +533,11 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         func=dr.pseudo_inertia,
         mode="reset",
         params={
-          # Excludes "base_link": it's the massless freejoint wrapper (all
-          # real mass/inertia live on "torso", see tinker_range.xml) -- its
-          # pseudo-inertia matrix is identically zero, and Cholesky-decomposing
-          # a zero matrix produces NaN, which then corrupts the whole sim.
           "asset_cfg": SceneEntityCfg("tinker", body_names="torso|link_.*"),
-          "alpha_range": (0.5 * math.log(0.9), 0.5 * math.log(1.1)),
+          "alpha_range": (0.5 * math.log(0.8), 0.5 * math.log(1.1)),
+          "t1_range": (-0.04, 0.04),
+          "t2_range": (-0.04, 0.04),
+          "t3_range": (-0.04, 0.04),
         }
       ),
       "encoder_bias": EventTermCfg(
@@ -547,19 +546,6 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         params={
           "asset_cfg": SceneEntityCfg("tinker"),
           "bias_range": (-0.015, 0.015),
-        },
-      ),
-      "base_com": EventTermCfg(
-        mode="startup",
-        func=dr.body_com_offset,
-        params={
-          "asset_cfg": SceneEntityCfg("tinker", body_names=("base_link")),  # Set per-robot.
-          "operation": "add",
-          "ranges": {
-            0: (-0.025, 0.025),
-            1: (-0.025, 0.025),
-            2: (-0.03, 0.03),
-          },
         },
       ),
       "armature": EventTermCfg(
