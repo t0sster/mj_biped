@@ -284,7 +284,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     "gait": mdp.UniformGaitCommandCfg(
       resampling_time_range=(1.0e6, 1.0e6),
       ranges=mdp.UniformGaitCommandCfg.Ranges(
-        frequencies=(1.5, 2.0),
+        frequencies=(2.0, 2.0),
         duty_cycle=(0.5, 0.5),
       ),
     ),
@@ -321,7 +321,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "track_angular_velocity": RewardTermCfg(
       func=velocity_mdp.track_angular_velocity,
-      weight=2.0,
+      weight=2.5,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
