@@ -494,7 +494,22 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
           mode="reset",
           params={
               "asset_cfg": SceneEntityCfg("tinker"),
-              "pose_range": {"yaw": (-math.pi, math.pi)},
+              "pose_range": {
+                  "roll": (-0.25, 0.25),
+                  "pitch": (-0.25, 0.25),
+                  "yaw": (-math.pi, math.pi),
+              },
+          },
+      ),
+      # Randomize initial joint pose around the default crouch, so every
+      # episode doesn't start from the exact same pose.
+      "reset_joints": EventTermCfg(
+          func=event_fns.reset_joints_by_offset,
+          mode="reset",
+          params={
+              "asset_cfg": _ROBOT_CFG,
+              "position_range": (-0.1, 0.1),
+              "velocity_range": (0.0, 0.0),
           },
       ),
       # Randomize foot friction once at startup.
@@ -541,11 +556,11 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         }
       ),
       "encoder_bias": EventTermCfg(
-        mode="startup",
+        mode="reset",
         func=dr.encoder_bias,
         params={
           "asset_cfg": SceneEntityCfg("tinker"),
-          "bias_range": (-0.015, 0.015),
+          "bias_range": (-0.05, 0.05),
         },
       ),
       "armature": EventTermCfg(
