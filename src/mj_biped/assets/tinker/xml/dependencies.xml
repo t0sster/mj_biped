@@ -3,7 +3,7 @@
     angle="radian"
     autolimits="true"
     inertiafromgeom="auto"
-    inertiagrouprange="4 5"
+    inertiagrouprange="0 5"
     meshdir="../meshes/"
   />
 

@@ -1,0 +1,94 @@
+<mujocoinclude>
+    <body name="base_link" pos="0 0 0" quat="1 0 0 0">
+        <freejoint name="floating_base_joint" />
+        <!-- base_link itself carries no geoms (all real mass is on "torso"
+             below); MuJoCo requires a nonzero mass/inertia on any body with
+             its own DOFs (the freejoint), so give it a negligible one. -->
+        <inertial pos="0 0 0" mass="0.001" diaginertia="1e-6 1e-6 1e-6" />
+
+        <body name="torso" quat="0 0 0 1">
+            
+            <geom type="mesh" contype="0" conaffinity="0" group="2" rgba="0.5 0.5 0.5 1" mesh="base_link" mass="2.3933" />
+            <geom name="base_collision" type="box" size="0.11 0.07 0.05" pos="0 0 0.03"
+                  contype="0" conaffinity="1" group="3" rgba="0.5 0.5 0.5 0.25" mass="0" />
+            <site name="imu" type="sphere" size=".005" pos="0.009 -0.0075 0.1"
+                  quat="0.7071067811865475 0 0 0.7071067811865475" rgba="1 0 0 1" />
+
+            <body name="link_l_yaw" pos="0.0 -0.053301 0.056145">
+                <joint name="joint_l_yaw" pos="0 0 0" axis="0 0 -1" limited="true" range="-0.5 0.5" armature="0.024776" frictionloss="0.166980" damping="0.250651" />
+                <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.89804 0.91765 0.92941 1" mesh="link_l_yaw" mass="0.4033"/>
+
+                <body name="link_l_roll" pos="-0.010958 0 -0.054965">
+                    <joint name="joint_l_roll" pos="0 0 0" axis="1 0 0" limited="true" range="-0.3 0.3" armature="0.032850" frictionloss="0.259239" damping="0.001136" />
+                    <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.89804 0.91765 0.92941 1" mesh="link_l_roll" mass="0.46748"/>
+
+                    <body name="link_l_pitch" pos="0.010958 -0.073699 -0.014313" quat="0 0 0 1">
+                        <joint name="joint_l_pitch" pos="0 0 0" axis="0 1 0" limited="true" range="-1.6 2.0" armature="0.029625" frictionloss="0.048435" damping="0.267501" />
+                        <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.79216 0.81961 0.93333 1" mesh="link_l_pitch" mass="0.56676"/>
+                        <geom name="left_thigh_collision" type="cylinder" size="0.02 0.060"
+                              pos="0 0.005 -0.06" contype="0" conaffinity="1" group="3"
+                              rgba="0.79216 0.81961 0.93333 0.25" mass="0" />
+
+                        <body name="link_l_knee" pos="0 0 -0.14738">
+
+                            <joint name="joint_l_knee" pos="0 0 0" axis="0 -1 0" limited="true" range="-2.2 2.2" armature="0.013130" frictionloss="0.0" damping="0.377046" />
+                            <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="link_l_knee" mass="0.35345" />
+                            <geom name="left_shank_collision" type="cylinder" size="0.022 0.060"
+                                  pos="0 0 -0.071" contype="0" conaffinity="1" group="3"
+                                  rgba="1 1 1 0.25" mass="0" />
+
+                            <body name="link_l_ankle" pos="0 0 -0.14149">
+
+                                <joint name="joint_l_ankle" pos="0 0 0" axis="0 1 0" limited="true" range="-1.2 1.2" armature="0.013179" frictionloss="1.520994" damping="0.0" />
+                                <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="link_l_ankle" mass="0.17624"/>
+                                <geom name="left_foot_collision" type="box"
+                                      size="0.07 0.025 0.009" pos="0.015 0 -0.040"
+                                      friction="0.8 0.005 0.0001" condim="3"
+                                      contype="0" conaffinity="1" group="3"
+                                      rgba="1 1 1 0.25" mass="0" />
+                                <site name="left_foot" size="0.008" pos="0.015 0 -0.049" />
+                            </body>
+                        </body>
+                    </body>
+                </body>
+            </body>
+
+            <body name="link_r_yaw" pos="0.0 0.053425 0.056145">
+                <joint name="joint_r_yaw" pos="0 0 0" axis="0 0 -1" limited="true" range="-0.5 0.5" armature="0.024776" frictionloss="0.166980" damping="0.250651" />
+                <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.89804 0.91765 0.92941 1" mesh="link_r_yaw" mass="0.4033" />
+
+                <body name="link_r_roll" pos="-0.010958 0 -0.054965">
+                    <joint name="joint_r_roll" pos="0 0 0" axis="1 0 0" limited="true" range="-0.3 0.3" armature="0.032850" frictionloss="0.259239" damping="0.001136" />
+                    <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.89804 0.91765 0.92941 1" mesh="link_r_roll" mass="0.46748" />
+
+                    <body name="link_r_pitch" pos="0.010958 0.073575 -0.014313" quat="0 0 0 1">
+                        <joint name="joint_r_pitch" pos="0 0 0" axis="0 -1 0" limited="true" range="-2.0 1.6" armature="0.029625" frictionloss="0.048435" damping="0.267501" />
+                        <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.79216 0.81961 0.93333 1" mesh="link_r_pitch" mass="0.56676" />
+                        <geom name="right_thigh_collision" type="cylinder" size="0.02 0.060"
+                              pos="0 -0.005 -0.06" contype="0" conaffinity="1" group="3"
+                              rgba="0.79216 0.81961 0.93333 0.25" mass="0" />
+
+                        <body name="link_r_knee" pos="0 0 -0.14738">
+                            <joint name="joint_r_knee" pos="0 0 0" axis="0 1 0" limited="true" range="-2.2 2.2" armature="0.013130" frictionloss="0.0" damping="0.377046" />
+                            <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="link_r_knee" mass="0.35345" />
+                            <geom name="right_shank_collision" type="cylinder" size="0.022 0.060"
+                                  pos="0 0 -0.071" contype="0" conaffinity="1" group="3"
+                                  rgba="1 1 1 0.25" mass="0" />
+
+                            <body name="link_r_ankle" pos="0 0 -0.14149">
+                                <joint name="joint_r_ankle" pos="0 0 0" axis="0 -1 0" limited="true" range="-1.2 1.2" armature="0.013179" frictionloss="1.520994" damping="0.0" />
+                                <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 0.90588 0.91765 1" mesh="link_r_ankle" mass="0.175" />
+                                <geom name="right_foot_collision" type="box"
+                                      size="0.07 0.025 0.009" pos="0.015 0 -0.040"
+                                      friction="0.8 0.005 0.0001" condim="3"
+                                      contype="0" conaffinity="1" group="3"
+                                      rgba="1 0.90588 0.91765 0.25" mass="0" />
+                                <site name="right_foot" size="0.008" pos="0.015 0 -0.049" />
+                            </body>
+                        </body>
+                    </body>
+                </body>
+            </body>
+        </body>
+    </body>
+</mujocoinclude>

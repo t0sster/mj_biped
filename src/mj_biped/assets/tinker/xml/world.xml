@@ -2,6 +2,6 @@
   <include file="dependencies.xml" />
 
   <worldbody>
-    <include file="tinker_range.xml" />
+    <include file="tinker_no_cad.xml" />
   </worldbody>
 </mujoco>

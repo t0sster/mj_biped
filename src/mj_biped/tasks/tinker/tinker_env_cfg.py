@@ -67,72 +67,54 @@ _IMU_ACCEL_SENSOR = "tinker/imu_accel"
 _HEIGH_RAYCAST_SENSOR = "ray_cast_sensor"
 
 
-_YAW_JOINT_NAMES_EXPR = (".*_yaw",)
-_ROLL_JOINT_NAMES_EXPR = (".*_roll",)
-_PITCH_JOINT_NAMES_EXPR = (".*_pitch",)
-_KNEE_JOINT_NAMES_EXPR = (".*_knee",)
-_ANKLE_JOINT_NAMES_EXPR = (".*_ankle",)
+# Per-joint system-identification results (armature, viscous damping,
+# frictionloss, and fixed encoder bias). Replaces the old per-type-regex
+# grouping now that left/right differ per joint.
+_JOINT_SYSID_PARAMS: dict[str, dict[str, float]] = {
+  "joint_l_yaw":   dict(armature=0.000047, viscous_damping=0.000160, frictionloss=0.000795, bias=0.000000),
+  "joint_l_roll":  dict(armature=0.044615, viscous_damping=0.001613, frictionloss=0.022171, bias=-0.070268),
+  "joint_l_pitch": dict(armature=0.006544, viscous_damping=0.140445, frictionloss=0.000807, bias=0.069494),
+  "joint_l_knee":  dict(armature=0.002769, viscous_damping=0.000031, frictionloss=0.118826, bias=0.011938),
+  "joint_l_ankle": dict(armature=0.000037, viscous_damping=0.008481, frictionloss=0.086515, bias=-0.074817),
+  "joint_r_yaw":   dict(armature=0.001484, viscous_damping=0.000002, frictionloss=0.045615, bias=0.000000),
+  "joint_r_roll":  dict(armature=0.064098, viscous_damping=0.000078, frictionloss=0.010532, bias=0.089285),
+  "joint_r_pitch": dict(armature=0.006486, viscous_damping=0.192266, frictionloss=0.006080, bias=0.046807),
+  "joint_r_knee":  dict(armature=0.003711, viscous_damping=0.000679, frictionloss=0.262517, bias=0.010674),
+  "joint_r_ankle": dict(armature=0.000021, viscous_damping=0.007967, frictionloss=0.080381, bias=-0.052671),
+}
+
+# effort_limit is still per joint *type* (not individually measured above).
+_JOINT_TYPE_EFFORT_LIMIT = {
+  "yaw": 4.0,
+  "roll": 8.0,
+  "pitch": 8.0,
+  "knee": 8.0,
+  "ankle": 4.0,
+}
+
+# Measured command delay is shared across all joints. It's sub-timestep at
+# the current physics rate (0.221 ms < 2 ms per physics step), so it can't
+# be represented by the integer-physics-step delay model -- rounds to 0
+# steps (i.e. no modeled delay) rather than 1 step (2 ms, ~9x the measured
+# value).
+_MEASURED_DELAY_MS = 0.221
+_PHYSICS_TIMESTEP_MS = 2.0  # must match MujocoCfg(timestep=0.002) below
+_DELAY_LAG_STEPS = round(_MEASURED_DELAY_MS / _PHYSICS_TIMESTEP_MS)
 
 _TINKER_ARTICULATION = EntityArticulationInfoCfg(
-  actuators=(
-    # DM-6006
+  actuators=tuple(
     BuiltinPositionActuatorCfg(
-      target_names_expr=_YAW_JOINT_NAMES_EXPR,
+      target_names_expr=(joint_name,),
       stiffness=15.0,
       damping=0.65,
-      effort_limit=6.0,
-      armature=0.024776,
-      frictionloss=0.166980,
-      viscous_damping=0.250651,
-      delay_min_lag=0,
-      delay_max_lag=30,
-    ),
-    # DM-8006
-    BuiltinPositionActuatorCfg(
-      target_names_expr=_ROLL_JOINT_NAMES_EXPR,
-      stiffness=15.0,
-      damping=0.65,
-      effort_limit=10.0,
-      armature=0.032850,
-      frictionloss=0.259239,
-      viscous_damping=0.001136,
-      delay_min_lag=0,
-      delay_max_lag=30,
-    ),
-    BuiltinPositionActuatorCfg(
-      target_names_expr=_PITCH_JOINT_NAMES_EXPR,
-      stiffness=15.0,
-      damping=0.65,
-      effort_limit=10.0,
-      armature=0.029625,
-      frictionloss=0.048435,
-      viscous_damping=0.267501,
-      delay_min_lag=0,
-      delay_max_lag=30,
-    ),
-    BuiltinPositionActuatorCfg(
-      target_names_expr=_KNEE_JOINT_NAMES_EXPR,
-      stiffness=15.0,
-      damping=0.65,
-      effort_limit=10.0,
-      armature=0.013130,
-      frictionloss=0.0,
-      viscous_damping=0.377046,
-      delay_min_lag=0,
-      delay_max_lag=30,
-    ),
-    # DM-6006
-    BuiltinPositionActuatorCfg(
-      target_names_expr=_ANKLE_JOINT_NAMES_EXPR,
-      stiffness=15.0,
-      damping=0.65,
-      effort_limit=6.0,
-      armature=0.013179,
-      frictionloss=1.520994,
-      viscous_damping=0.0,
-      delay_min_lag=0,
-      delay_max_lag=30,
-    ),
+      effort_limit=_JOINT_TYPE_EFFORT_LIMIT[joint_name.rsplit("_", 1)[-1]],
+      armature=params["armature"],
+      frictionloss=params["frictionloss"],
+      viscous_damping=params["viscous_damping"],
+      delay_min_lag=_DELAY_LAG_STEPS,
+      delay_max_lag=_DELAY_LAG_STEPS,
+    )
+    for joint_name, params in _JOINT_SYSID_PARAMS.items()
   ),
   soft_joint_pos_limit_factor=0.95,
 )
@@ -312,7 +294,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
 
     "track_linear_velocity": RewardTermCfg(
       func=mdp.track_linear_velocity_world,
-      weight=1.25,
+      weight=2.0,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
@@ -374,7 +356,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "swing_foot_force": RewardTermCfg(
       func=mdp.swing_foot_force_l2,
-      weight=-0.3,
+      weight=-0.75,
       params={
         "command_name": "gait",
         "motion_command_name": "velocity",
@@ -385,7 +367,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
     "stance_foot_velocity": RewardTermCfg(
       func=mdp.stance_foot_velocity_l2,
-      weight=-0.3,
+      weight=-0.75,
       params={
         "asset_cfg": _FOOT_SITE_CFG,
         "command_name": "gait",
@@ -544,59 +526,40 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
               "asset_cfg": SceneEntityCfg("tinker", body_names=("base_link")),
           },
       ),
+      # Mass/inertia/CoM randomization restricted to the base only -- legs
+      # are no longer randomized now that per-joint sysid params are fixed.
       "body_mass": EventTermCfg(
         func=dr.pseudo_inertia,
         mode="reset",
         params={
-          "asset_cfg": SceneEntityCfg("tinker", body_names="torso|link_.*"),
+          "asset_cfg": SceneEntityCfg("tinker", body_names="torso"),
           "alpha_range": (0.5 * math.log(0.8), 0.5 * math.log(1.1)),
           "t1_range": (-0.04, 0.04),
           "t2_range": (-0.04, 0.04),
           "t3_range": (-0.04, 0.04),
         }
       ),
-      "encoder_bias": EventTermCfg(
-        mode="reset",
-        func=dr.encoder_bias,
-        params={
-          "asset_cfg": SceneEntityCfg("tinker"),
-          "bias_range": (-0.05, 0.05),
-        },
-      ),
-      "armature": EventTermCfg(
-        mode="startup",
-        func=dr.joint_armature,
-        params={
-          "asset_cfg": SceneEntityCfg("tinker", joint_names=(".*")),
-          "operation": "scale",
-          "ranges": (0.95, 1.05),
-        },
-      ),
-      "frictioloss": EventTermCfg(
-        mode="startup",
-        func=dr.joint_friction,
-        params={
-          "asset_cfg": SceneEntityCfg("tinker", joint_names=(".*")),
-          "operation": "scale",
-          "ranges": (0.95, 1.05),
-        },
-      ),
-      "damping": EventTermCfg(
-        mode="startup",
-        func=dr.joint_damping,
-        params={
-          "asset_cfg": SceneEntityCfg("tinker", joint_names=(".*")),
-          "operation": "scale",
-          "ranges": (0.95, 1.05),
-        },
-      ),
+      # Fixed (not randomized) per-joint encoder bias from measured
+      # calibration -- a degenerate (v, v) range makes dr.encoder_bias
+      # sample the same constant every time.
+      **{
+        f"encoder_bias_{joint_name}": EventTermCfg(
+          mode="startup",
+          func=dr.encoder_bias,
+          params={
+            "asset_cfg": SceneEntityCfg("tinker", joint_names=(joint_name,)),
+            "bias_range": (params["bias"], params["bias"]),
+          },
+        )
+        for joint_name, params in _JOINT_SYSID_PARAMS.items()
+      },
       "effort_limits": EventTermCfg(
         mode="startup",
         func=dr.effort_limits,
         params={
           "asset_cfg": _ROBOT_ACTUATOR_CFG,
           "operation": "scale",
-          "effort_limit_range": (0.8, 1.2),
+          "effort_limit_range": (0.95, 1.05),
         },
       ),
   }
