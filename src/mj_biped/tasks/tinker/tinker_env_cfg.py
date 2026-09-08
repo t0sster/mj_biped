@@ -312,7 +312,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
 
     "track_linear_velocity": RewardTermCfg(
       func=mdp.track_linear_velocity_world,
-      weight=2.0,
+      weight=1.25,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
@@ -372,27 +372,27 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         "command_threshold": 0.025,
       },
     ),
-    # "swing_foot_force": RewardTermCfg(
-    #   func=mdp.swing_foot_force_l2,
-    #   weight=-0.0,
-    #   params={
-    #     "command_name": "gait",
-    #     "motion_command_name": "velocity",
-    #     "sensor_name": _FEET_CONTACT_SENSOR,
-    #     "force_scale": 50.0,
-    #     "command_threshold": 0.05,
-    #   },
-    # ),
-    # "stance_foot_velocity": RewardTermCfg(
-    #   func=mdp.stance_foot_velocity_l2,
-    #   weight=-0.0,
-    #   params={
-    #     "asset_cfg": _FOOT_SITE_CFG,
-    #     "command_name": "gait",
-    #     "motion_command_name": "velocity",
-    #     "command_threshold": 0.05,
-    #   },
-    # ),
+    "swing_foot_force": RewardTermCfg(
+      func=mdp.swing_foot_force_l2,
+      weight=-0.3,
+      params={
+        "command_name": "gait",
+        "motion_command_name": "velocity",
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "force_scale": 50.0,
+        "command_threshold": 0.05,
+      },
+    ),
+    "stance_foot_velocity": RewardTermCfg(
+      func=mdp.stance_foot_velocity_l2,
+      weight=-0.3,
+      params={
+        "asset_cfg": _FOOT_SITE_CFG,
+        "command_name": "gait",
+        "motion_command_name": "velocity",
+        "command_threshold": 0.05,
+      },
+    ),
     # "feet_slip": RewardTermCfg(
     #   func=velocity_mdp.feet_slip,
     #   weight=-0.0,
