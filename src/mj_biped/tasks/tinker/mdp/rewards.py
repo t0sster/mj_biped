@@ -183,21 +183,51 @@ def step_width(
   return torch.exp(-error / std**2)
 
 
-def track_linear_velocity_global(
+def track_linear_velocity_world(
     env,
     std: float,
     command_name: str,
     asset_cfg: SceneEntityCfg,
 ) -> torch.Tensor:
-  """Reward for tracking the commanded base linear velocity.
+  """Reward for tracking the commanded base linear velocity, compared in world frame.
+
+  The command is body-frame (go forward/sideways relative to current heading),
+  so it's rotated into world frame by the current heading before comparing
+  against the world-frame actual velocity -- otherwise the comparison is only
+  valid when heading is ~0.
 
   The commanded z velocity is assumed to be zero.
   """
   asset = env.scene[asset_cfg.name]
   command = env.command_manager.get_command(command_name)
   assert command is not None, f"Command '{command_name}' not found."
+  heading = asset.data.heading_w
+  cos_h, sin_h = torch.cos(heading), torch.sin(heading)
+  command_w_x = cos_h * command[:, 0] - sin_h * command[:, 1]
+  command_w_y = sin_h * command[:, 0] + cos_h * command[:, 1]
   actual = asset.data.root_link_lin_vel_w
-  xy_error = torch.sum(torch.square(command[:, :2] - actual[:, :2]), dim=1)
+  xy_error = torch.square(command_w_x - actual[:, 0]) + torch.square(
+    command_w_y - actual[:, 1]
+  )
   z_error = torch.square(actual[:, 2])
   lin_vel_error = xy_error + z_error
   return torch.exp(-lin_vel_error / std**2)
+
+def track_angular_velocity_world(
+    env,
+    std: float,
+    command_name: str,
+    asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+  """Reward heading error for heading-controlled envs, angular velocity for others.
+
+  The commanded xy angular velocities are assumed to be zero.
+  """
+  asset = env.scene[asset_cfg.name]
+  command = env.command_manager.get_command(command_name)
+  assert command is not None, f"Command '{command_name}' not found."
+  actual = asset.data.root_link_ang_vel_w
+  z_error = torch.square(command[:, 2] - actual[:, 2])
+  xy_error = torch.sum(torch.square(actual[:, :2]), dim=1)
+  ang_vel_error = z_error + xy_error
+  return torch.exp(-ang_vel_error / std**2)

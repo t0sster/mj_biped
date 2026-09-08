@@ -311,7 +311,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     ),
 
     "track_linear_velocity": RewardTermCfg(
-      func=mdp.track_linear_velocity_global,
+      func=mdp.track_linear_velocity_world,
       weight=2.0,
       params={
         "asset_cfg": _ROBOT_CFG,
@@ -320,8 +320,8 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       },
     ),
     "track_angular_velocity": RewardTermCfg(
-      func=velocity_mdp.track_angular_velocity,
-      weight=2.5,
+      func=mdp.track_angular_velocity_world,
+      weight=2.0,
       params={
         "asset_cfg": _ROBOT_CFG,
         "command_name": "velocity",
