@@ -181,3 +181,23 @@ def step_width(
 
   error = torch.square(width - target_width)
   return torch.exp(-error / std**2)
+
+
+def track_linear_velocity_global(
+    env,
+    std: float,
+    command_name: str,
+    asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+  """Reward for tracking the commanded base linear velocity.
+
+  The commanded z velocity is assumed to be zero.
+  """
+  asset = env.scene[asset_cfg.name]
+  command = env.command_manager.get_command(command_name)
+  assert command is not None, f"Command '{command_name}' not found."
+  actual = asset.data.root_link_lin_vel_w
+  xy_error = torch.sum(torch.square(command[:, :2] - actual[:, :2]), dim=1)
+  z_error = torch.square(actual[:, 2])
+  lin_vel_error = xy_error + z_error
+  return torch.exp(-lin_vel_error / std**2)
