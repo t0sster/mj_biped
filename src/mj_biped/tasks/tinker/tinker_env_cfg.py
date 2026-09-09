@@ -71,16 +71,16 @@ _HEIGH_RAYCAST_SENSOR = "ray_cast_sensor"
 # frictionloss, and fixed encoder bias). Replaces the old per-type-regex
 # grouping now that left/right differ per joint.
 _JOINT_SYSID_PARAMS: dict[str, dict[str, float]] = {
-  "joint_l_yaw":   dict(armature=0.000047, viscous_damping=0.000160, frictionloss=0.000795, bias=0.000000),
-  "joint_l_roll":  dict(armature=0.044615, viscous_damping=0.001613, frictionloss=0.022171, bias=-0.070268),
-  "joint_l_pitch": dict(armature=0.006544, viscous_damping=0.140445, frictionloss=0.000807, bias=0.069494),
-  "joint_l_knee":  dict(armature=0.002769, viscous_damping=0.000031, frictionloss=0.118826, bias=0.011938),
-  "joint_l_ankle": dict(armature=0.000037, viscous_damping=0.008481, frictionloss=0.086515, bias=-0.074817),
-  "joint_r_yaw":   dict(armature=0.001484, viscous_damping=0.000002, frictionloss=0.045615, bias=0.000000),
-  "joint_r_roll":  dict(armature=0.064098, viscous_damping=0.000078, frictionloss=0.010532, bias=0.089285),
-  "joint_r_pitch": dict(armature=0.006486, viscous_damping=0.192266, frictionloss=0.006080, bias=0.046807),
-  "joint_r_knee":  dict(armature=0.003711, viscous_damping=0.000679, frictionloss=0.262517, bias=0.010674),
-  "joint_r_ankle": dict(armature=0.000021, viscous_damping=0.007967, frictionloss=0.080381, bias=-0.052671),
+  "joint_l_yaw":   dict(armature=0.000017, viscous_damping=0.000170, frictionloss=1.662382, bias=0.041923),
+  "joint_l_roll":  dict(armature=0.031485, viscous_damping=0.050498, frictionloss=0.729202, bias=-0.043820),
+  "joint_l_pitch": dict(armature=0.000389, viscous_damping=0.150005, frictionloss=0.149561, bias=0.10000),
+  "joint_l_knee":  dict(armature=0.005426, viscous_damping=0.000394, frictionloss=0.147384, bias=0.015222),
+  "joint_l_ankle": dict(armature=0.000000, viscous_damping=0.001146, frictionloss=0.167153, bias=0.066358),
+  "joint_r_yaw":   dict(armature=0.000017, viscous_damping=0.000170, frictionloss=1.662382, bias=0.041923),
+  "joint_r_roll":  dict(armature=0.031485, viscous_damping=0.050498, frictionloss=0.729202, bias=-0.043820),
+  "joint_r_pitch": dict(armature=0.000389, viscous_damping=0.150005, frictionloss=0.149561, bias=0.10000),
+  "joint_r_knee":  dict(armature=0.005426, viscous_damping=0.000394, frictionloss=0.147384, bias=0.015222),
+  "joint_r_ankle": dict(armature=0.000000, viscous_damping=0.001146, frictionloss=0.167153, bias=0.066358),
 }
 
 # effort_limit is still per joint *type* (not individually measured above).
@@ -105,8 +105,8 @@ _TINKER_ARTICULATION = EntityArticulationInfoCfg(
   actuators=tuple(
     BuiltinPositionActuatorCfg(
       target_names_expr=(joint_name,),
-      stiffness=15.0,
-      damping=0.65,
+      stiffness=10.0,
+      damping=0.5,
       effort_limit=_JOINT_TYPE_EFFORT_LIMIT[joint_name.rsplit("_", 1)[-1]],
       armature=params["armature"],
       frictionloss=params["frictionloss"],
@@ -116,7 +116,7 @@ _TINKER_ARTICULATION = EntityArticulationInfoCfg(
     )
     for joint_name, params in _JOINT_SYSID_PARAMS.items()
   ),
-  soft_joint_pos_limit_factor=0.95,
+  soft_joint_pos_limit_factor=0.99,
 )
 
 
