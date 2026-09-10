@@ -71,16 +71,18 @@ _HEIGH_RAYCAST_SENSOR = "ray_cast_sensor"
 # frictionloss, and fixed encoder bias). Replaces the old per-type-regex
 # grouping now that left/right differ per joint.
 _JOINT_SYSID_PARAMS: dict[str, dict[str, float]] = {
-  "joint_l_yaw":   dict(armature=0.000017, viscous_damping=0.000170, frictionloss=1.662382, bias=0.041923),
-  "joint_l_roll":  dict(armature=0.031485, viscous_damping=0.050498, frictionloss=0.729202, bias=-0.043820),
-  "joint_l_pitch": dict(armature=0.000389, viscous_damping=0.150005, frictionloss=0.149561, bias=0.10000),
-  "joint_l_knee":  dict(armature=0.005426, viscous_damping=0.000394, frictionloss=0.147384, bias=0.015222),
-  "joint_l_ankle": dict(armature=0.000000, viscous_damping=0.001146, frictionloss=0.167153, bias=0.066358),
-  "joint_r_yaw":   dict(armature=0.000017, viscous_damping=0.000170, frictionloss=1.662382, bias=0.041923),
-  "joint_r_roll":  dict(armature=0.031485, viscous_damping=0.050498, frictionloss=0.729202, bias=-0.043820),
-  "joint_r_pitch": dict(armature=0.000389, viscous_damping=0.150005, frictionloss=0.149561, bias=0.10000),
-  "joint_r_knee":  dict(armature=0.005426, viscous_damping=0.000394, frictionloss=0.147384, bias=0.015222),
-  "joint_r_ankle": dict(armature=0.000000, viscous_damping=0.001146, frictionloss=0.167153, bias=0.066358),
+  "joint_l_yaw":   dict(armature=0.00010, viscous_damping=0.00000, frictionloss=0.07725, bias=0.0157),
+  "joint_l_roll":  dict(armature=0.03862, viscous_damping=0.00048, frictionloss=0.22004, bias=-0.1256),
+  "joint_l_pitch": dict(armature=0.01840, viscous_damping=0.23528, frictionloss=0.22870, bias=0.0353),
+  "joint_l_knee":  dict(armature=0.00731, viscous_damping=0.13477, frictionloss=0.13150, bias=-0.0001),
+  "joint_l_ankle": dict(armature=0.00014, viscous_damping=0.04772, frictionloss=0.05082, bias=-0.0005),
+  # Right leg not yet independently measured -- mirrored from left (same
+  # values, not negated).
+  "joint_r_yaw":   dict(armature=0.00010, viscous_damping=0.00000, frictionloss=0.07725, bias=0.0157),
+  "joint_r_roll":  dict(armature=0.03862, viscous_damping=0.00048, frictionloss=0.22004, bias=-0.1256),
+  "joint_r_pitch": dict(armature=0.01840, viscous_damping=0.23528, frictionloss=0.22870, bias=0.0353),
+  "joint_r_knee":  dict(armature=0.00731, viscous_damping=0.13477, frictionloss=0.13150, bias=-0.0001),
+  "joint_r_ankle": dict(armature=0.00014, viscous_damping=0.04772, frictionloss=0.05082, bias=-0.0005),
 }
 
 # effort_limit is still per joint *type* (not individually measured above).
@@ -92,12 +94,9 @@ _JOINT_TYPE_EFFORT_LIMIT = {
   "ankle": 4.0,
 }
 
-# Measured command delay is shared across all joints. It's sub-timestep at
-# the current physics rate (0.221 ms < 2 ms per physics step), so it can't
-# be represented by the integer-physics-step delay model -- rounds to 0
-# steps (i.e. no modeled delay) rather than 1 step (2 ms, ~9x the measured
-# value).
-_MEASURED_DELAY_MS = 0.221
+# Measured command delay is shared across all joints, converted to whole
+# physics steps (33.94 ms / 2 ms per step = 16.97 -> rounds to 17 steps).
+_MEASURED_DELAY_MS = 33.94
 _PHYSICS_TIMESTEP_MS = 2.0  # must match MujocoCfg(timestep=0.002) below
 _DELAY_LAG_STEPS = round(_MEASURED_DELAY_MS / _PHYSICS_TIMESTEP_MS)
 
