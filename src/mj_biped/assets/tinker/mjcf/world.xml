@@ -1,0 +1,7 @@
+<mujoco model="tinker">
+  <include file="dependencies.xml" />
+
+  <worldbody>
+    <include file="tinker.xml" />
+  </worldbody>
+</mujoco>

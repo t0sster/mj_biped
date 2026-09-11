@@ -1,0 +1,36 @@
+<mujocoinclude>
+  <compiler
+    angle="radian"
+    autolimits="true"
+    inertiafromgeom="auto"
+    inertiagrouprange="4 5"
+    meshdir="../meshes_new/"
+  />
+
+  <asset>
+    <mesh name="base_link" file="base_link.STL" />
+    <!-- <mesh name="link_l_yaw" file="L0_Link.STL" />
+    <mesh name="link_l_roll" file="L1_Link.STL" />
+    <mesh name="link_l_pitch" file="L2_Link.STL" />
+    <mesh name="link_l_knee" file="L3_Link.STL" />
+    <mesh name="link_l_ankle" file="L4_Link_ankle.STL" />
+    <mesh name="link_r_yaw" file="R0_Link.STL" />
+    <mesh name="link_r_roll" file="R1_Link.STL" />
+    <mesh name="link_r_pitch" file="R2_Link.STL" />
+    <mesh name="link_r_knee" file="R3_Link.STL" />
+    <mesh name="link_r_ankle" file="R4_Link_ankle.STL" /> -->
+
+    <mesh name="link_l_pelvis-1" file="pelvis-1_left.stl" />
+    <mesh name="link_r_pelvis-1" file="pelvis-1_right.stl" />
+    <mesh name="link_l_pelvis-2" file="pelvis-2_left.stl" />
+    <mesh name="link_l_pelvis-2_mirror_y" file="pelvis-2_left.stl" scale="1 -1 1" />
+    <mesh name="link_r_pelvis-2" file="pelvis-2_right.stl" />
+    <mesh name="link_r_pelvis-2_mirror_y" file="pelvis-2_right.stl" scale="1 -1 1" />
+    <mesh name="link_l_shin" file="shin_left.stl" />
+    <mesh name="link_r_shin" file="shin_right.stl" />
+    <mesh name="link_l_thigh" file="thigh_left.stl" />
+    <mesh name="link_r_thigh" file="thigh_right.stl" />
+    <mesh name="link_l_ankle" file="ankle_left.STL" />
+    <mesh name="link_r_ankle" file="ankle_right.STL" />
+  </asset>
+</mujocoinclude>

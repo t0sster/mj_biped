@@ -32,20 +32,27 @@ from mjlab.viewer import ViewerConfig
 from mj_biped.tasks.tinker import mdp
 
 _TINKER_XML = (
-  Path(__file__).resolve().parents[2] / "assets" / "tinker" / "xml" / "world.xml"
+  Path(__file__).resolve().parents[2] / "assets" / "tinker" / "mjcf" / "world.xml"
 )
 
+# The new model splits each non-yaw joint into two DOFs in series: an
+# "actuator_joint_*" (the motor/rotor, carrying the motor's own mass) driving
+# a downstream, currently-uncontrolled "joint_*" (the output link -- no
+# spring/equality constraint ties it to the actuator in the XML yet). We
+# control joint_l_yaw/joint_r_yaw (no separate actuator body exists for yaw)
+# plus the four actuator_joint_* per leg -- matching the old model's 10-DOF
+# action space, just renamed/relocated to where the motor really is.
 _JOINT_NAMES = (
   "joint_l_yaw",
-  "joint_l_roll",
-  "joint_l_pitch",
-  "joint_l_knee",
-  "joint_l_ankle",
+  "actuator_joint_l_roll",
+  "actuator_joint_l_hip",
+  "actuator_joint_l_knee",
+  "actuator_joint_l_ankle",
   "joint_r_yaw",
-  "joint_r_roll",
-  "joint_r_pitch",
-  "joint_r_knee",
-  "joint_r_ankle",
+  "actuator_joint_r_roll",
+  "actuator_joint_r_hip",
+  "actuator_joint_r_knee",
+  "actuator_joint_r_ankle",
 )
 
 _ROBOT_CFG = SceneEntityCfg("tinker", joint_names=_JOINT_NAMES)
@@ -71,32 +78,32 @@ _HEIGH_RAYCAST_SENSOR = "ray_cast_sensor"
 # frictionloss, and fixed encoder bias). Replaces the old per-type-regex
 # grouping now that left/right differ per joint.
 _JOINT_SYSID_PARAMS: dict[str, dict[str, float]] = {
-  "joint_l_yaw":   dict(armature=0.00010, viscous_damping=0.00000, frictionloss=0.07725, bias=0.0157),
-  "joint_l_roll":  dict(armature=0.03862, viscous_damping=0.00048, frictionloss=0.22004, bias=-0.1256),
-  "joint_l_pitch": dict(armature=0.01840, viscous_damping=0.23528, frictionloss=0.22870, bias=0.0353),
-  "joint_l_knee":  dict(armature=0.00731, viscous_damping=0.13477, frictionloss=0.13150, bias=-0.0001),
-  "joint_l_ankle": dict(armature=0.00014, viscous_damping=0.04772, frictionloss=0.05082, bias=-0.0005),
+  "joint_l_yaw":            dict(armature=0.00010, viscous_damping=0.00015, frictionloss=0.06376, bias=0.0034),
+  "actuator_joint_l_roll":  dict(armature=0.02428, viscous_damping=0.00055, frictionloss=0.20956, bias=-0.0900),
+  "actuator_joint_l_hip":   dict(armature=0.01508, viscous_damping=0.20577, frictionloss=0.20281, bias=0.0194),
+  "actuator_joint_l_knee":  dict(armature=0.00716, viscous_damping=0.12399, frictionloss=0.10800, bias=-0.0050),
+  "actuator_joint_l_ankle": dict(armature=0.00010, viscous_damping=0.02544, frictionloss=0.05319, bias=0.0089),
   # Right leg not yet independently measured -- mirrored from left (same
   # values, not negated).
-  "joint_r_yaw":   dict(armature=0.00010, viscous_damping=0.00000, frictionloss=0.07725, bias=0.0157),
-  "joint_r_roll":  dict(armature=0.03862, viscous_damping=0.00048, frictionloss=0.22004, bias=-0.1256),
-  "joint_r_pitch": dict(armature=0.01840, viscous_damping=0.23528, frictionloss=0.22870, bias=0.0353),
-  "joint_r_knee":  dict(armature=0.00731, viscous_damping=0.13477, frictionloss=0.13150, bias=-0.0001),
-  "joint_r_ankle": dict(armature=0.00014, viscous_damping=0.04772, frictionloss=0.05082, bias=-0.0005),
+  "joint_r_yaw":            dict(armature=0.00010, viscous_damping=0.00015, frictionloss=0.06376, bias=0.0034),
+  "actuator_joint_r_roll":  dict(armature=0.02428, viscous_damping=0.00055, frictionloss=0.20956, bias=-0.0900),
+  "actuator_joint_r_hip":   dict(armature=0.01508, viscous_damping=0.20577, frictionloss=0.20281, bias=0.0194),
+  "actuator_joint_r_knee":  dict(armature=0.00716, viscous_damping=0.12399, frictionloss=0.10800, bias=-0.0050),
+  "actuator_joint_r_ankle": dict(armature=0.00010, viscous_damping=0.02544, frictionloss=0.05319, bias=0.0089),
 }
 
 # effort_limit is still per joint *type* (not individually measured above).
 _JOINT_TYPE_EFFORT_LIMIT = {
   "yaw": 4.0,
   "roll": 8.0,
-  "pitch": 8.0,
+  "hip": 8.0,
   "knee": 8.0,
   "ankle": 4.0,
 }
 
 # Measured command delay is shared across all joints, converted to whole
-# physics steps (33.94 ms / 2 ms per step = 16.97 -> rounds to 17 steps).
-_MEASURED_DELAY_MS = 33.94
+# physics steps (35.95 ms / 2 ms per step = 17.975 -> rounds to 18 steps).
+_MEASURED_DELAY_MS = 35.95
 _PHYSICS_TIMESTEP_MS = 2.0  # must match MujocoCfg(timestep=0.002) below
 _DELAY_LAG_STEPS = round(_MEASURED_DELAY_MS / _PHYSICS_TIMESTEP_MS)
 
@@ -128,16 +135,19 @@ _TINKER_INITIAL_STATE = EntityCfg.InitialStateCfg(
   rot=(1.0, 0.0, 0.0, 0.0),
   joint_pos={
     "joint_l_yaw": 0.0,
-    "joint_l_roll": 0.0,
-    "joint_l_pitch": 0.85,
-    "joint_l_knee": 1.5,
-    "joint_l_ankle": 0.85,
+    "actuator_joint_l_roll": 0.0,
+    "actuator_joint_l_hip": 0.85,
+    "actuator_joint_l_knee": 1.5,
+    "actuator_joint_l_ankle": 0.85,
     "joint_r_yaw": 0.0,
-    "joint_r_roll": 0.0,
-    "joint_r_pitch": -0.85,
-    "joint_r_knee": -1.5,
-    "joint_r_ankle": -0.85,
+    "actuator_joint_r_roll": 0.0,
+    "actuator_joint_r_hip": -0.85,
+    "actuator_joint_r_knee": -1.5,
+    "actuator_joint_r_ankle": -0.85,
   },
+  # ".*" also zeroes the passive joint_l_roll/pitch/knee/ankle downstream
+  # DOFs (see _JOINT_NAMES comment) -- they have no init_state entry above,
+  # so their position already defaults to 0 same as this does for velocity.
   joint_vel={".*": 0.0},
 )
 # _TINKER_INITIAL_STATE = EntityCfg.InitialStateCfg(
@@ -239,7 +249,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       scale={
         ".*_yaw": 0.25,
         ".*_roll": 0.15,
-        ".*_pitch": 0.4,
+        ".*_hip": 0.4,
         ".*_knee": 0.35,
         ".*_ankle": 0.25,
       },
@@ -328,14 +338,14 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         "std_walking": {
           ".*_yaw": math.sqrt(0.05),
           ".*_roll": math.sqrt(0.05),
-          ".*_pitch": math.sqrt(0.05),
+          ".*_hip": math.sqrt(0.05),
           ".*_knee": math.sqrt(0.4),
           ".*_ankle": math.sqrt(0.25),
         },
         "std_running": {
           ".*_yaw": math.sqrt(0.08),
           ".*_roll": math.sqrt(0.1),
-          ".*_pitch": math.sqrt(0.05),
+          ".*_hip": math.sqrt(0.05),
           ".*_knee": math.sqrt(0.5),
           ".*_ankle": math.sqrt(0.35),
         },
@@ -609,6 +619,18 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         "link_l_knee",
         "link_r_pitch",
         "link_r_knee",
+        # New model's actuator/rotor bodies have real (default) collision
+        # geometry -- unlike every other geom in this model, their <geom>
+        # tags don't set contype/conaffinity=0, so they can physically touch
+        # the ground and should count as an illegal contact too.
+        "actuator_roll",
+        "actuator_hip",
+        "actuator_knee",
+        "actuator_ankle",
+        "actuator_r_roll",
+        "actuator_r_hip",
+        "actuator_r_knee",
+        "actuator_r_ankle",
       ),
       entity="tinker",
     ),
@@ -648,8 +670,11 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       azimuth=90.0,
     ),
     sim=SimulationCfg(
-      nconmax=48,
-      njmax=128,
+      # New model has ~2x the collision geoms (8 actuator-housing cylinders
+      # added) -- raised from 48/128 to give headroom past the ~52 contacts
+      # observed at reset across the full random-pose population.
+      nconmax=96,
+      njmax=256,
       mujoco=MujocoCfg(
         timestep=0.002,
         iterations=10,
