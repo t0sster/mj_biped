@@ -609,8 +609,8 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         "event_name": "foot_friction",
         "stages": [
           {"step": 0, "params": {"ranges": (0.8, 1.0)}},
-          {"step": 24_000, "params": {"ranges": (0.7, 1.5)}},
-          {"step": 48_000, "params": {"ranges": (0.5, 2.0)}},
+          {"step": 24_000, "params": {"ranges": (0.6, 1.5)}},
+          {"step": 48_000, "params": {"ranges": (0.3, 2.0)}},
         ],
       },
     ),
