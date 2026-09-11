@@ -11,6 +11,7 @@ from mjlab.envs import mdp as env_mdp
 from mjlab.envs.mdp.actions import JointPositionActionCfg
 from mjlab.envs.mdp import dr, events as event_fns
 from mjlab.managers.action_manager import ActionTermCfg
+from mjlab.managers.curriculum_manager import CurriculumTermCfg
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.command_manager import CommandTermCfg
 from mjlab.managers.observation_manager import (
@@ -75,9 +76,9 @@ _HEIGH_RAYCAST_SENSOR = "ray_cast_sensor"
 # frictionloss, and fixed encoder bias). Replaces the old per-type-regex
 # grouping now that left/right differ per joint.
 _JOINT_SYSID_PARAMS: dict[str, dict[str, float]] = {
-  "joint_l_yaw":            dict(armature=0.00010, viscous_damping=0.00015, frictionloss=0.06376, bias=0.0034),
+  "joint_l_yaw":   dict(armature=0.00010, viscous_damping=0.00015, frictionloss=0.06376, bias=0.0034),
   "joint_l_roll":  dict(armature=0.02428, viscous_damping=0.00055, frictionloss=0.20956, bias=-0.0900),
-  "joint_l_pitch":   dict(armature=0.01508, viscous_damping=0.20577, frictionloss=0.20281, bias=0.0194),
+  "joint_l_pitch": dict(armature=0.01508, viscous_damping=0.20577, frictionloss=0.20281, bias=0.0194),
   "joint_l_knee":  dict(armature=0.00716, viscous_damping=0.12399, frictionloss=0.10800, bias=-0.0050),
   "joint_l_ankle": dict(armature=0.00010, viscous_damping=0.02544, frictionloss=0.05319, bias=0.0089),
   # Right leg not yet independently measured -- mirrored from left (same
@@ -185,7 +186,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     "imu_accel": ObservationTermCfg(
       func=mdp.builtin_sensor_data,
       params={"sensor_name": _IMU_ACCEL_SENSOR},
-      noise=UniformNoiseCfg(n_min=-0.3, n_max=0.3),
+      noise=UniformNoiseCfg(n_min=-0.5, n_max=0.5),
     ),
     "velocity_command": ObservationTermCfg(
       func=env_mdp.generated_commands,
@@ -198,7 +199,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     "joint_pos": ObservationTermCfg(
       func=env_mdp.joint_pos_rel,
       params={"asset_cfg": _ROBOT_CFG, "biased": True},
-      noise=UniformNoiseCfg(n_min=-0.02, n_max=0.02),
+      noise=UniformNoiseCfg(n_min=-0.05, n_max=0.05),
     ),
     "joint_vel": ObservationTermCfg(
       func=env_mdp.joint_vel_rel,
@@ -497,13 +498,15 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
               "velocity_range": (0.0, 0.0),
           },
       ),
-      # Randomize foot friction once at startup.
+      # Randomize foot friction every episode reset. mode="reset" (not
+      # "startup") so the curriculum below can widen "ranges" over training
+      # and have it actually take effect on later episodes.
       "foot_friction": EventTermCfg(
           func=dr.geom_friction,
-          mode="startup",
+          mode="reset",
           params={
               "asset_cfg": SceneEntityCfg("tinker", geom_names=["left_foot_collision", "right_foot_collision"]),
-              "ranges": (0.8, 1.0),
+              "ranges": (0.92, 1.0),
               "operation": "abs",
           },
       ),
@@ -522,7 +525,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
           func=event_fns.apply_body_impulse,
           mode="step",
           params={
-              "force_range": (-15.0, 15.0),
+              "force_range": (-10.0, 10.0),
               "torque_range": (0.0, 0.0),
               "duration_s": (0.05, 0.1),
               "cooldown_s": (1.0, 5.0),
@@ -531,15 +534,18 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
       ),
       # Mass/inertia/CoM randomization restricted to the base only -- legs
       # are no longer randomized now that per-joint sysid params are fixed.
+      # t1/t2/t3_range (CoM offset) start narrow and widen via the
+      # "com_offset_curriculum" curriculum term below; alpha_range
+      # (mass scale) is left fixed at full difficulty from the start.
       "body_mass": EventTermCfg(
         func=dr.pseudo_inertia,
         mode="reset",
         params={
           "asset_cfg": SceneEntityCfg("tinker", body_names="torso"),
           "alpha_range": (0.5 * math.log(0.8), 0.5 * math.log(1.1)),
-          "t1_range": (-0.04, 0.04),
-          "t2_range": (-0.04, 0.04),
-          "t3_range": (-0.04, 0.04),
+          "t1_range": (-0.01, 0.01),
+          "t2_range": (-0.01, 0.01),
+          "t3_range": (-0.01, 0.01),
         }
       ),
       # Fixed (not randomized) per-joint encoder bias from measured
@@ -565,6 +571,49 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
           "effort_limit_range": (0.95, 1.05),
         },
       ),
+  }
+
+  # Widen two DR ranges over the course of training instead of randomizing
+  # at full difficulty from step 0: base CoM offset (body_mass's t1/2/3_range)
+  # and foot friction (foot_friction's ranges). Step thresholds are in
+  # env.common_step_counter units (env.step() calls, i.e.
+  # num_steps_per_env * PPO iteration -- see mdp/runner.py), spaced across
+  # the ~120k steps of a max_iterations=5001, num_steps_per_env=24 run.
+  curriculum = {
+    "com_offset_curriculum": CurriculumTermCfg(
+      func=mdp.event_curriculum,
+      params={
+        "event_name": "body_mass",
+        "stages": [
+          {"step": 0, "params": {
+            "t1_range": (-0.04, 0.04),
+            "t2_range": (-0.04, 0.04),
+            "t3_range": (-0.04, 0.04),
+          }},
+          {"step": 24_000, "params": {
+            "t1_range": (-0.08, 0.08),
+            "t2_range": (-0.08, 0.08),
+            "t3_range": (-0.08, 0.08),
+          }},
+          {"step": 48_000, "params": {
+            "t1_range": (-0.12, 0.12),
+            "t2_range": (-0.12, 0.12),
+            "t3_range": (-0.12, 0.12),
+          }},
+        ],
+      },
+    ),
+    "foot_friction_curriculum": CurriculumTermCfg(
+      func=mdp.event_curriculum,
+      params={
+        "event_name": "foot_friction",
+        "stages": [
+          {"step": 0, "params": {"ranges": (0.8, 1.0)}},
+          {"step": 24_000, "params": {"ranges": (0.7, 1.5)}},
+          {"step": 48_000, "params": {"ranges": (0.5, 2.0)}},
+        ],
+      },
+    ),
   }
 
   raycast_cfg = RayCastSensorCfg(
@@ -613,10 +662,6 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
         "link_l_knee",
         "link_r_pitch",
         "link_r_knee",
-        # New model's actuator/rotor bodies have real (default) collision
-        # geometry -- unlike every other geom in this model, their <geom>
-        # tags don't set contype/conaffinity=0, so they can physically touch
-        # the ground and should count as an illegal contact too.
         "actuator_roll",
         "actuator_hip",
         "actuator_knee",
@@ -654,6 +699,7 @@ def _make_env_cfg(num_envs: int) -> ManagerBasedRlEnvCfg:
     rewards=rewards,
     terminations=terminations,
     events=events,
+    curriculum=curriculum,
     metrics={},
     viewer=ViewerConfig(
       origin_type=ViewerConfig.OriginType.ASSET_BODY,
